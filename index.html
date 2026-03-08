@@ -46,7 +46,7 @@ canvas { display:block; }
 
 // ══════ IMAGES ══════
 const PANELS = [
-  { src:"photo_2026-03-07_21-54-50.jpg", pos:[0,    1.6,-3.7], rotY:0    },
+  { src:"photo_2026-03-08_11-37-57.jpg", pos:[0,    1.6,-3.7], rotY:0    },
   { src:"photo_2026-03-07_21-54-46.jpg", pos:[2.6,  1.6,-2.6], rotY:-45  },
   { src:"photo_2026-03-07_21-54-41.jpg", pos:[3.7,  1.6, 0  ], rotY:-90  },
   { src:"photo_2026-03-07_21-54-29.jpg", pos:[2.6,  1.6, 2.6], rotY:-135 },
@@ -115,9 +115,18 @@ function startDrag(x,y){ dragging=true; lx=x; ly=y; }
 function stopDrag(){ dragging=false; }
 function onDrag(x,y){
   if(!dragging) return;
-  yaw   += (x-lx)*SENS;
-  pitch -= (y-ly)*SENS;
-  pitch  = Math.max(-PLIM, Math.min(PLIM, pitch));
+  const dx = (x-lx)*SENS;
+  const dy = (y-ly)*SENS;
+  if(gyroOn){
+    // accumulate touch offset on top of gyro
+    touchYawOff += dx;
+    touchPitOff -= dy;
+    touchPitOff  = Math.max(-PLIM, Math.min(PLIM, touchPitOff));
+  } else {
+    yaw   += dx;
+    pitch -= dy;
+    pitch  = Math.max(-PLIM, Math.min(PLIM, pitch));
+  }
   lx=x; ly=y;
 }
 
@@ -153,21 +162,22 @@ renderer.domElement.addEventListener("touchend", e=>{
   }
 }, { passive:false });
 
-// ══════ GYROSCOPE — نفس منطق A-Frame magicWindowTrackingEnabled ══════
-// المتغيرات
+// ══════ GYROSCOPE + TOUCH COMBINED ══════
 const _q        = new THREE.Quaternion();
-const _qScreen  = new THREE.Quaternion(); // تصحيح اتجاه الشاشة
+const _qScreen  = new THREE.Quaternion();
 const _euler    = new THREE.Euler();
-// تصحيح المحور: شاشة عمودية = دوران -90 حول X
 _qScreen.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI/2);
 
-let _qBase = null;  // نقطة البداية (الصفر)
-let gyroOn = false;
+let _qBase      = null;
+let gyroOn      = false;
+let gyroYaw     = 0;   // يأتي من الجيرو
+let gyroPitch   = 0;   // يأتي من الجيرو
+let touchYawOff = 0;   // إضافة من اللمس فوق الجيرو
+let touchPitOff = 0;   // إضافة من اللمس فوق الجيرو
 
 function onDeviceOrientation(e){
   if(e.alpha === null || e.beta === null || e.gamma === null) return;
 
-  // نفس A-Frame: بناء quaternion من زوايا الجهاز
   _euler.set(
     THREE.MathUtils.degToRad(e.beta),
     THREE.MathUtils.degToRad(e.alpha),
@@ -175,25 +185,17 @@ function onDeviceOrientation(e){
     "YXZ"
   );
   _q.setFromEuler(_euler);
-
-  // تصحيح اتجاه الشاشة (نفس ما يفعله A-Frame)
   _q.multiply(_qScreen);
 
-  // أول قراءة = نقطة الصفر
-  if(_qBase === null){
-    _qBase = _q.clone().invert();
-  }
+  if(_qBase === null) _qBase = _q.clone().invert();
 
-  // الدوران النسبي
   const relQ = _qBase.clone().premultiply(_q);
+  const m    = new THREE.Matrix4().makeRotationFromQuaternion(relQ);
+  const eu   = new THREE.Euler().setFromRotationMatrix(m, "YXZ");
 
-  // استخرج yaw و pitch من الـ quaternion
-  const m  = new THREE.Matrix4().makeRotationFromQuaternion(relQ);
-  const eu = new THREE.Euler().setFromRotationMatrix(m, "YXZ");
-
-  yaw   = eu.y;
-  pitch = Math.max(-PLIM, Math.min(PLIM, eu.x));
-  gyroOn = true;
+  gyroYaw   = eu.y;
+  gyroPitch = Math.max(-PLIM, Math.min(PLIM, eu.x));
+  gyroOn    = true;
 }
 
 if(typeof DeviceOrientationEvent !== "undefined"){
@@ -253,6 +255,11 @@ window.addEventListener("resize", ()=>{
 // ══════ RENDER LOOP ══════
 function loop(){
   requestAnimationFrame(loop);
+  if(gyroOn){
+    // gyro base + finger offset on top
+    yaw   = gyroYaw   + touchYawOff;
+    pitch = Math.max(-PLIM, Math.min(PLIM, gyroPitch + touchPitOff));
+  }
   euler.set(pitch, yaw, 0);
   camera.quaternion.setFromEuler(euler);
   renderer.render(scene, camera);
