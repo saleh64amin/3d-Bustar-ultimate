@@ -20,7 +20,7 @@ canvas { display:block; }
 #overlay.on { display:flex; }
 #overlay img {
   max-width:95vw; max-height:92vh; object-fit:contain;
-  border:2px solid rgba(255,255,255,0.3); border-radius:5px;
+  border:2px solid rgba(255, 255, 255, 0.3); border-radius:5px;
   box-shadow:0 0 60px #000;
 }
 #xbtn {
@@ -64,15 +64,17 @@ const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(W, H);
 renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMappingExposure = 1.5;
 document.body.appendChild(renderer.domElement);
 
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0b15);
+scene.background = new THREE.Color(0xf0ede8);
 
 const camera = new THREE.PerspectiveCamera(75, W/H, 0.05, 100);
 camera.position.set(0, 0, 0); // viewer at dead center
 
-scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+scene.add(new THREE.AmbientLight(0xffffff, 4.0));
+scene.add(new THREE.DirectionalLight(0xffffff, 2.0));
 
 // ══════════════════════════════════════════════
 //  TEXTURE HELPER
@@ -131,7 +133,7 @@ WALLS.forEach((src, i) => {
   const py = 1.6; // eye level center of panel
 
   // Blank material — texture loads async
-  const mat  = new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.FrontSide });
+  const mat  = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
 
   // Position at ring edge
@@ -178,7 +180,7 @@ scene.add(cframe);
 // ══════════════════════════════════════════════
 const floor = new THREE.Mesh(
   new THREE.CircleGeometry(R+1, 64),
-  new THREE.MeshBasicMaterial({ color:0x07070f })
+  new THREE.MeshBasicMaterial({ color:0xddd8d0 })
 );
 floor.rotation.x = -Math.PI/2;
 floor.position.y = -PH/2 + 1.6;
@@ -214,7 +216,10 @@ window.addEventListener("touchmove", e=>{
 },{passive:true});
 window.addEventListener("touchend", e=>{
   ed();
-  if(!tm) tap(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+  if(!tm){
+    const t=e.changedTouches[0];
+    tap(t.clientX, t.clientY);
+  }
 },{passive:true});
 
 // ══════════════════════════════════════════════
@@ -246,6 +251,47 @@ function closeZ(){
 }
 window.closeZ=closeZ;
 
+
+// ══════════════════════════════════════════════
+//  GYROSCOPE - Android Chrome compatible
+// ══════════════════════════════════════════════
+let alphaOffset = null;
+let gyroActive  = false;
+
+function onOrientation(e) {
+  if (e.alpha === null) return;
+  if (alphaOffset === null) alphaOffset = e.alpha;
+
+  // Android Chrome: portrait mode mapping
+  const alpha  = THREE.MathUtils.degToRad(e.alpha - alphaOffset);
+  const beta   = THREE.MathUtils.degToRad(e.beta);
+  const gamma  = THREE.MathUtils.degToRad(e.gamma);
+
+  // Use gamma for horizontal look, beta-90 for vertical
+  yaw   = -alpha - gamma * 0.5;
+  pitch = THREE.MathUtils.degToRad(e.beta - 90);
+  pitch = Math.max(-PLIM, Math.min(PLIM, pitch));
+  gyroActive = true;
+}
+
+// Android Chrome: fires directly, no permission
+if (typeof DeviceOrientationEvent !== "undefined") {
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    // iOS 13+ only
+    const btn = document.createElement("button");
+    btn.textContent = "🔄 تفعيل الجيروسكوب";
+    btn.style.cssText = "position:fixed;top:14px;right:14px;z-index:200;padding:8px 14px;border-radius:20px;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:13px;cursor:pointer;";
+    btn.onclick = () => {
+      DeviceOrientationEvent.requestPermission().then(r => {
+        if (r === "granted") { window.addEventListener("deviceorientation", onOrientation, true); btn.remove(); }
+      });
+    };
+    document.body.appendChild(btn);
+  } else {
+    // Android Chrome - direct
+    window.addEventListener("deviceorientation", onOrientation, true);
+  }
+}
 // ══════════════════════════════════════════════
 //  RESIZE
 // ══════════════════════════════════════════════
