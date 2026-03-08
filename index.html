@@ -1,124 +1,144 @@
 <!DOCTYPE html>
-
 <html lang="ar">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-<title>معرض الصور</title>
+<title>معرض الصور — Chrome fix</title>
 
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 
 <style>
-html,body{
-margin:0;
-overflow:hidden;
-touch-action:none;
-}
+  /* Prevent page scrolling and overscroll when interacting with the scene */
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;                 /* prevents page scroll */
+    overscroll-behavior: none;        /* prevents pull-to-refresh / overscroll */
+    -webkit-overflow-scrolling: touch;
+    touch-action: none;               /* tell browser we will handle touch */
+    -ms-touch-action: none;
+  }
 
-#fullscreen-zoom{
-display:none;
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.9);
-z-index:9999;
-justify-content:center;
-align-items:center;
-}
+  /* Ensure the scene and canvas don't let browser take the touch events */
+  a-scene, canvas { 
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    -ms-touch-action: none;
+  }
 
-#fullscreen-zoom img{
-max-width:95%;
-max-height:95%;
-border:2px solid white;
-}
+  #fullscreen-zoom{
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.9);
+    z-index:9999;
+    justify-content:center;
+    align-items:center;
+    cursor:zoom-out;
+  }
+  #fullscreen-zoom img{
+    max-width:95%;
+    max-height:95%;
+    border:2px solid white;
+  }
 
-.instruction{
-position:fixed;
-bottom:20px;
-width:100%;
-text-align:center;
-color:white;
-font-family:sans-serif;
-z-index:100;
-}
+  .instruction{
+    position:fixed;
+    bottom:20px;
+    width:100%;
+    text-align:center;
+    color:white;
+    font-family:sans-serif;
+    z-index:100;
+    pointer-events:none;
+  }
 </style>
 
 <script>
-AFRAME.registerComponent('zoom-logic',{
-init:function(){
+  /* Zoom-on-tap component (tap only; no gaze/fuse) */
+  AFRAME.registerComponent('zoom-logic', {
+    init: function () {
+      const overlay = document.getElementById('fullscreen-zoom');
+      const zoomImg = overlay.querySelector('img');
 
-const overlay=document.getElementById("fullscreen-zoom");
-const zoomImg=overlay.querySelector("img");
+      // click/tap -> open overlay
+      this.el.addEventListener('click', (evt) => {
+        const src = this.el.getAttribute('src');
+        zoomImg.src = src;
+        overlay.style.display = 'flex';
+      });
 
-this.el.addEventListener("click",()=>{
+      // on touchstart we also accept taps (mobile)
+      this.el.addEventListener('touchstart', (evt) => {
+        // don't preventDefault here; we want look-controls to get moves
+        // only open overlay on quick taps — but to keep it simple, we open on touchstart
+        const src = this.el.getAttribute('src');
+        zoomImg.src = src;
+        overlay.style.display = 'flex';
+      }, {passive: true});
+    }
+  });
 
-zoomImg.src=this.el.getAttribute("src");
-overlay.style.display="flex";
+  function closeZoom(){
+    document.getElementById('fullscreen-zoom').style.display = 'none';
+  }
 
-});
-
-}
-});
-
-function closeZoom(){
-document.getElementById("fullscreen-zoom").style.display="none";
-}
+  /* Chrome fix: prevent page scrolling when touch is on the A-Frame scene.
+     We only block the default when the touch target is inside <a-scene>.
+     Use passive:false to allow preventDefault(). */
+  document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('touchmove', function (e) {
+      try {
+        // if the touch started inside the A-Frame scene or on its canvas, stop the browser scroll
+        const t = e.target;
+        if (t && t.closest && t.closest('a-scene')) {
+          // prevent page scrolling so A-Frame's look-controls receives the vertical drag
+          e.preventDefault();
+        }
+      } catch (err) {
+        // ignore
+      }
+    }, { passive: false }); // <-- important: passive:false so preventDefault works in Chrome
+  });
 </script>
-
 </head>
-
 <body>
 
-<div class="instruction">
-اسحب الشاشة للتحرك — اضغط الصورة للتكبير
-</div>
+<div class="instruction">اسحب الشاشة للتحرك — اضغط الصورة للتكبير</div>
 
 <div id="fullscreen-zoom" onclick="closeZoom()">
-<img src="">
+  <img src="" alt="zoomed image">
 </div>
 
-<a-scene vr-mode-ui="enabled:false">
+<a-scene renderer="antialias:true; colorManagement:true" vr-mode-ui="enabled:false">
+  <a-sky color="#556B2F"></a-sky>
+  <a-entity light="type:ambient; intensity:1.5"></a-entity>
 
-<a-sky color="#556B2F"></a-sky>
+  <!-- 8 images around -->
+  <a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 1.6 -5" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="3.5 1.6 -3.5" rotation="0 -45 0" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="5 1.6 0" rotation="0 -90 0" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-41.jpg" position="3.5 1.6 3.5" rotation="0 -135 0" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-46.jpg" position="0 1.6 5" rotation="0 180 0" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-50.jpg" position="-3.5 1.6 3.5" rotation="0 135 0" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="-5 1.6 0" rotation="0 90 0" width="3.5" height="3.5"></a-image>
+  <a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="-3.5 1.6 -3.5" rotation="0 45 0" width="3.5" height="3.5"></a-image>
 
-<a-entity light="type:ambient;intensity:1.5"></a-entity>
+  <!-- image above -->
+  <a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="0 6 0" rotation="90 0 0" width="4" height="4"></a-image>
 
-<!-- 8 images around -->
+  <!-- Camera: touch drag + device motion (magic window) -->
+  <a-entity camera position="0 1.6 0"
+            look-controls="touchEnabled: true; mouseEnabled: true; magicWindowTrackingEnabled: true; reverseTouchDrag: false; pointerLockEnabled: false">
+    <a-entity geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
+              material="color: white; shader: flat"
+              position="0 0 -2" scale="0.3 0.3 0.3"></a-entity>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 1.6 -5" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="3.5 1.6 -3.5" rotation="0 -45 0" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="5 1.6 0" rotation="0 -90 0" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-41.jpg" position="3.5 1.6 3.5" rotation="0 -135 0" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-46.jpg" position="0 1.6 5" rotation="0 180 0" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-50.jpg" position="-3.5 1.6 3.5" rotation="0 135 0" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="-5 1.6 0" rotation="0 90 0" width="3.5" height="3.5"></a-image>
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="-3.5 1.6 -3.5" rotation="0 45 0" width="3.5" height="3.5"></a-image>
-
-<!-- image above -->
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="0 6 0" rotation="90 0 0" width="4" height="4"></a-image>
-
-<a-entity camera
-look-controls="touchEnabled:true; magicWindowTrackingEnabled:true"
-position="0 1.6 0">
-
-<a-entity
-cursor="fuse:false; rayOrigin:entity"
-raycaster="objects:a-image"> </a-entity>
-
-</a-entity>
-
+    <!-- cursor from camera, fuse disabled so no gaze zoom -->
+    <a-entity cursor="fuse: false; rayOrigin: entity" raycaster="objects: a-image"></a-entity>
+  </a-entity>
 </a-scene>
 
 </body>
