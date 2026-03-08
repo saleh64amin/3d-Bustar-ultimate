@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="ar"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> <title>معرض الصور الذكي المطور</title> <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script> <style> /* طبقة التكبير */ #fullscreen-zoom { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 9999; justify-content: center; align-items: center; cursor: zoom-out; animation: fadeIn 0.3s ease; }
+#fullscreen-zoom img {
+max-width: 95%;
+max-height: 95%;
+object-fit: contain;
+border: 2px solid #fff;
+box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+@keyframes fadeIn {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+
+.instruction {
+position: fixed;
+bottom: 20px;
+width: 100%;
+text-align: center;
+color: white;
+font-family: sans-serif;
+pointer-events: none;
+z-index: 100;
+text-shadow: 1px 1px 5px black;
+}
+</style>
+
+<script> AFRAME.registerComponent('zoom-logic', { init: function () { const zoomOverlay = document.getElementById('fullscreen-zoom'); const zoomImg = zoomOverlay.querySelector('img'); this.el.addEventListener('click', (e) => { const src = this.el.getAttribute('src'); zoomImg.src = src; zoomOverlay.style.display = 'flex'; }); } }); function closeZoom() { document.getElementById('fullscreen-zoom').style.display = 'none'; } </script></head> <body> <div class="instruction">انقر على أي صورة لتكبيرها</div> <div id="fullscreen-zoom" onclick="closeZoom()"> <img src="" alt="Zoomed Image"> </div> <a-scene renderer="antialias: true; colorManagement: true;"> <!-- خلفية خضراء زيتية --> <a-sky color="#556B2F"></a-sky>
+<a-entity light="type: ambient; intensity: 1.5;"></a-entity>
+
+<!-- الصور --> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 1.6 -5" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="3.5 1.6 -3.5" rotation="0 -45 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="5 1.6 0" rotation="0 -90 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-41.jpg" position="3.5 1.6 3.5" rotation="0 -135 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-46.jpg" position="0 1.6 5" rotation="0 180 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-50.jpg" position="-3.5 1.6 3.5" rotation="0 135 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="-5 1.6 0" rotation="0 90 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="-3.5 1.6 -3.5" rotation="0 45 0" width="3.5" height="3.5"> <a-plane color="#fff" width="3.7" height="3.7" position="0 0 -0.01"></a-plane> </a-image> <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 6 0" rotation="90 0 0" width="4" height="4"> <a-plane color="#fff" width="4.2" height="4.2" position="0 0 -0.01"></a-plane> </a-image> <!-- الكاميرا مع تحكمات باللمس (سحب الشاشة) ومؤشر مرئي -->
+<a-entity camera look-controls="touchEnabled: true" cursor="rayOrigin: entity" raycaster="objects: .clickable" position="0 1.6 0">
+
+<!-- نقطة تهدف في المنتصف لتسهيل التفاعل على الموبايل -->
+<a-entity geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015" material="color: white; shader: flat" position="0 0 -2" scale="0.3 0.3 0.3">
+</a-entity>
+</a-entity>
+
+</a-scene>
+
+</body> </html>
