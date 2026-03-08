@@ -1,309 +1,264 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>معرض الصور</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family:sans-serif; }
+html, body { width:100%; height:100%; overflow:hidden; touch-action:none; background:#fff; }
 canvas { display:block; }
+
 .hint {
   position:fixed; bottom:20px; width:100%; text-align:center;
-  color:rgba(255,255,255,0.75); font-size:14px; z-index:100;
-  pointer-events:none; text-shadow:0 1px 4px #000;
+  color:#333; font-family:sans-serif; font-size:14px;
+  z-index:100; pointer-events:none;
+  text-shadow: 0 1px 3px rgba(255,255,255,0.8);
 }
-#overlay {
-  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.94);
-  z-index:9999; justify-content:center; align-items:center;
+
+#fullscreen-zoom {
+  display:none;
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.92);
+  z-index:9999;
+  justify-content:center;
+  align-items:center;
 }
-#overlay.on { display:flex; }
-#overlay img {
-  max-width:95vw; max-height:92vh; object-fit:contain;
-  border:2px solid rgba(255,255,255,0.3); border-radius:5px;
-  box-shadow:0 0 60px #000;
-}
-#xbtn {
-  position:fixed; top:14px; left:14px; width:40px; height:40px;
-  background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3);
-  color:#fff; font-size:20px; border-radius:50%; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-  z-index:10000;
+#fullscreen-zoom img {
+  max-width:95%;
+  max-height:95%;
+  border:2px solid white;
+  object-fit:contain;
+  display:block;
 }
 </style>
 </head>
 <body>
+
 <div class="hint">اسحب للدوران • اضغط الصورة للتكبير</div>
-<div id="overlay" onclick="closeZ()">
-  <button id="xbtn" onclick="closeZ()">✕</button>
-  <img id="zimg" src="" alt="">
+
+<div id="fullscreen-zoom" onclick="closeZoom()">
+  <img id="zoom-img" src="" alt="">
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ══════════════════════════════════════════════
-//  IMAGES  (8 wall + 1 ceiling = 9 total)
-// ══════════════════════════════════════════════
-const WALLS = [
-  "photo_2026-03-07_21-54-50.jpg",
-  "photo_2026-03-07_21-54-46.jpg",
-  "photo_2026-03-07_21-54-41.jpg",
-  "photo_2026-03-07_21-54-29.jpg",
-  "photo_2026-03-07_21-54-35.jpg",
-  "photo_2026-03-07_21-54-13.jpg",
-  "photo_2026-03-07_21-54-29.jpg",
-  "photo_2026-03-07_21-54-35.jpg",
-];
-const CEIL = "photo_2026-03-07_21-54-13.jpg";
 
-// ══════════════════════════════════════════════
-//  RENDERER
-// ══════════════════════════════════════════════
-const W = window.innerWidth, H = window.innerHeight;
+// ══════ IMAGES ══════
+const PANELS = [
+  { src:"photo_2026-03-07_21-54-50.jpg", pos:[0,    1.6,-5  ], rotY:0    },
+  { src:"photo_2026-03-07_21-54-46.jpg", pos:[3.5,  1.6,-3.5], rotY:-45  },
+  { src:"photo_2026-03-07_21-54-41.jpg", pos:[5,    1.6, 0  ], rotY:-90  },
+  { src:"photo_2026-03-07_21-54-29.jpg", pos:[3.5,  1.6, 3.5], rotY:-135 },
+  { src:"photo_2026-03-07_21-54-35.jpg", pos:[0,    1.6, 5  ], rotY:180  },
+  { src:"photo_2026-03-07_21-54-13.jpg", pos:[-3.5, 1.6, 3.5], rotY:135  },
+  { src:"photo_2026-03-07_21-54-29.jpg", pos:[-5,   1.6, 0  ], rotY:90   },
+  { src:"photo_2026-03-07_21-54-35.jpg", pos:[-3.5, 1.6,-3.5], rotY:45   },
+];
+const CEILING = { src:"photo_2026-03-07_21-54-13.jpg", pos:[0, 6, 0], rotX:90 };
+
+// ══════ RENDERER ══════
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(W, H);
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
 
-const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0xf0ede8);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x556B2F);
 
-const camera = new THREE.PerspectiveCamera(75, W/H, 0.05, 100);
-camera.position.set(0, 0, 0); // viewer at dead center
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.05, 100);
+camera.position.set(0, 1.6, 0);
 
-scene.add(new THREE.AmbientLight(0xffffff, 4.0));
-scene.add(new THREE.DirectionalLight(0xffffff, 2.0));
+scene.add(new THREE.AmbientLight(0xffffff, 3.5));
 
-// ══════════════════════════════════════════════
-//  TEXTURE HELPER
-// ══════════════════════════════════════════════
+// ══════ TEXTURES ══════
 const TL = new THREE.TextureLoader();
 const clickable = [];
 
-function addTex(src, mesh) {
-  TL.load(src, tex => {
-    tex.encoding     = THREE.sRGBEncoding;
-    tex.anisotropy   = renderer.capabilities.getMaxAnisotropy();
-    tex.minFilter    = THREE.LinearMipmapLinearFilter;
-    tex.magFilter    = THREE.LinearFilter;
-    mesh.material.map = tex;
-    mesh.material.needsUpdate = true;
-  });
-}
-
-// ══════════════════════════════════════════════
-//  GOLD FRAME helper
-// ══════════════════════════════════════════════
-function goldFrame(w, h) {
-  const b = 0.06;
-  const shape = new THREE.Shape();
-  shape.moveTo(-w/2-b, -h/2-b);
-  shape.lineTo( w/2+b, -h/2-b);
-  shape.lineTo( w/2+b,  h/2+b);
-  shape.lineTo(-w/2-b,  h/2+b);
-  shape.closePath();
-  const hole = new THREE.Path();
-  hole.moveTo(-w/2, -h/2);
-  hole.lineTo( w/2, -h/2);
-  hole.lineTo( w/2,  h/2);
-  hole.lineTo(-w/2,  h/2);
-  hole.closePath();
-  shape.holes.push(hole);
-  return new THREE.Mesh(
-    new THREE.ShapeGeometry(shape),
-    new THREE.MeshBasicMaterial({ color:0xc9a840, side:THREE.DoubleSide })
-  );
-}
-
-// ══════════════════════════════════════════════
-//  WALL PANELS — key fix: lookAt(0,y,0) so each
-//  panel naturally faces the viewer at center
-// ══════════════════════════════════════════════
-const R  = 4.8;   // radius of the ring
-const PH = 5.0;   // panel height
-const PW = 2 * R * Math.tan(Math.PI / WALLS.length); // width fills gap
-const N  = WALLS.length; // 8
-
-WALLS.forEach((src, i) => {
-  const angle = (i / N) * Math.PI * 2;
-  const px = Math.sin(angle) * R;
-  const pz = Math.cos(angle) * R;
-  const py = 1.6; // eye level center of panel
-
-  // Blank material — texture loads async
-  const mat  = new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.FrontSide });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
-
-  // Position at ring edge
-  mesh.position.set(px, py, pz);
-  // CRITICAL: face toward center (0, py, 0)
-  mesh.lookAt(0, py, 0);
-
+function makeMesh(src, w, h) {
+  const mat  = new THREE.MeshBasicMaterial({ color:0xffffff });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   mesh.userData.src = src;
-  scene.add(mesh);
+  TL.load(src, tex => {
+    tex.encoding   = THREE.sRGBEncoding;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    tex.minFilter  = THREE.LinearMipmapLinearFilter;
+    tex.magFilter  = THREE.LinearFilter;
+    mat.map = tex;
+    mat.needsUpdate = true;
+  });
   clickable.push(mesh);
-  addTex(src, mesh);
+  return mesh;
+}
 
-  // Gold frame on top
-  const frame = goldFrame(PW, PH);
-  frame.position.set(px, py, pz);
-  frame.lookAt(0, py, 0);
-  // Push frame slightly in front
-  frame.position.x += Math.sin(angle) * -0.02;
-  frame.position.z += Math.cos(angle) * -0.02;
-  scene.add(frame);
+PANELS.forEach(p => {
+  const mesh = makeMesh(p.src, 3.5, 3.5);
+  mesh.position.set(...p.pos);
+  mesh.rotation.y = THREE.MathUtils.degToRad(p.rotY);
+  scene.add(mesh);
 });
 
-// ══════════════════════════════════════════════
-//  CEILING IMAGE — 1 image flat above viewer
-// ══════════════════════════════════════════════
-const CS   = 3.8; // ceiling square size
-const CMAT = new THREE.MeshBasicMaterial({ color:0x222222, side:THREE.FrontSide });
-const CMESH = new THREE.Mesh(new THREE.PlaneGeometry(CS, CS), CMAT);
-CMESH.position.set(0, PH/2 + 1.6 + 0.5, 0);
-CMESH.rotation.x = Math.PI / 2; // face downward = viewer looks up
-CMESH.userData.src = CEIL;
-scene.add(CMESH);
-clickable.push(CMESH);
-addTex(CEIL, CMESH);
+const ceil = makeMesh(CEILING.src, 4, 4);
+ceil.position.set(...CEILING.pos);
+ceil.rotation.x = THREE.MathUtils.degToRad(CEILING.rotX);
+scene.add(ceil);
 
-const cframe = goldFrame(CS, CS);
-cframe.position.copy(CMESH.position);
-cframe.position.y += 0.02;
-cframe.rotation.x = Math.PI / 2;
-scene.add(cframe);
-
-// ══════════════════════════════════════════════
-//  FLOOR
-// ══════════════════════════════════════════════
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(R+1, 64),
-  new THREE.MeshBasicMaterial({ color:0xddd8d0 })
-);
-floor.rotation.x = -Math.PI/2;
-floor.position.y = -PH/2 + 1.6;
-scene.add(floor);
-
-// ══════════════════════════════════════════════
-//  LOOK CONTROLS
-// ══════════════════════════════════════════════
-let yaw=0, pitch=0, drag=false, lx=0, ly=0;
-const SENS=0.003, PLIM=Math.PI/2.1;
+// ══════ DRAG CONTROLS ══════
+let yaw=0, pitch=0;
+let dragging=false, lx=0, ly=0;
+const SENS = 0.003;
+const PLIM = Math.PI / 2.1;
 const euler = new THREE.Euler(0,0,0,"YXZ");
 
-function sd(x,y){ drag=true; lx=x; ly=y; }
-function ed(){ drag=false; }
-function mv(x,y){
-  if(!drag) return;
-  yaw   -= (x-lx)*SENS;
+function startDrag(x,y){ dragging=true; lx=x; ly=y; }
+function stopDrag(){ dragging=false; }
+function onDrag(x,y){
+  if(!dragging) return;
+  yaw   += (x-lx)*SENS;
   pitch -= (y-ly)*SENS;
   pitch  = Math.max(-PLIM, Math.min(PLIM, pitch));
   lx=x; ly=y;
 }
 
-renderer.domElement.addEventListener("mousedown",  e=>sd(e.clientX,e.clientY));
-window.addEventListener("mouseup",   ed);
-window.addEventListener("mousemove", e=>mv(e.clientX,e.clientY));
+renderer.domElement.addEventListener("mousedown",  e=>startDrag(e.clientX,e.clientY));
+window.addEventListener("mouseup",   stopDrag);
+window.addEventListener("mousemove", e=>onDrag(e.clientX,e.clientY));
 
-let tm=false;
+// ══════ TOUCH ══════
+let touchStartX=0, touchStartY=0, touchMoved=false;
+
 renderer.domElement.addEventListener("touchstart", e=>{
-  tm=false; sd(e.touches[0].clientX,e.touches[0].clientY);
-},{passive:true});
-window.addEventListener("touchmove", e=>{
-  tm=true; mv(e.touches[0].clientX,e.touches[0].clientY);
-},{passive:true});
-window.addEventListener("touchend", e=>{
-  ed();
-  if(!tm){
-    const t=e.changedTouches[0];
-    tap(t.clientX, t.clientY);
+  e.preventDefault();
+  touchMoved  = false;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  startDrag(touchStartX, touchStartY);
+}, { passive:false });
+
+renderer.domElement.addEventListener("touchmove", e=>{
+  e.preventDefault();
+  const dx = Math.abs(e.touches[0].clientX - touchStartX);
+  const dy = Math.abs(e.touches[0].clientY - touchStartY);
+  if(dx > 5 || dy > 5) touchMoved = true;
+  onDrag(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive:false });
+
+renderer.domElement.addEventListener("touchend", e=>{
+  e.preventDefault();
+  stopDrag();
+  if(!touchMoved){
+    const t = e.changedTouches[0];
+    doRaycast(t.clientX, t.clientY);
   }
-},{passive:true});
+}, { passive:false });
 
-// ══════════════════════════════════════════════
-//  CLICK/TAP ZOOM
-// ══════════════════════════════════════════════
-const rc=new THREE.Raycaster(), pt=new THREE.Vector2();
+// ══════ GYROSCOPE — نفس منطق A-Frame magicWindowTrackingEnabled ══════
+// المتغيرات
+const _q        = new THREE.Quaternion();
+const _qScreen  = new THREE.Quaternion(); // تصحيح اتجاه الشاشة
+const _euler    = new THREE.Euler();
+// تصحيح المحور: شاشة عمودية = دوران -90 حول X
+_qScreen.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI/2);
 
-function tap(cx,cy){
-  pt.x=(cx/window.innerWidth)*2-1;
-  pt.y=-(cy/window.innerHeight)*2+1;
+let _qBase = null;  // نقطة البداية (الصفر)
+let gyroOn = false;
+
+function onDeviceOrientation(e){
+  if(e.alpha === null || e.beta === null || e.gamma === null) return;
+
+  // نفس A-Frame: بناء quaternion من زوايا الجهاز
+  _euler.set(
+    THREE.MathUtils.degToRad(e.beta),
+    THREE.MathUtils.degToRad(e.alpha),
+    -THREE.MathUtils.degToRad(e.gamma),
+    "YXZ"
+  );
+  _q.setFromEuler(_euler);
+
+  // تصحيح اتجاه الشاشة (نفس ما يفعله A-Frame)
+  _q.multiply(_qScreen);
+
+  // أول قراءة = نقطة الصفر
+  if(_qBase === null){
+    _qBase = _q.clone().invert();
+  }
+
+  // الدوران النسبي
+  const relQ = _qBase.clone().premultiply(_q);
+
+  // استخرج yaw و pitch من الـ quaternion
+  const m  = new THREE.Matrix4().makeRotationFromQuaternion(relQ);
+  const eu = new THREE.Euler().setFromRotationMatrix(m, "YXZ");
+
+  yaw   = eu.y;
+  pitch = Math.max(-PLIM, Math.min(PLIM, eu.x));
+  gyroOn = true;
+}
+
+if(typeof DeviceOrientationEvent !== "undefined"){
+  if(typeof DeviceOrientationEvent.requestPermission === "function"){
+    // iOS 13+
+    const btn = document.createElement("button");
+    btn.textContent = "🔄 تفعيل الجيروسكوب";
+    btn.style.cssText = "position:fixed;top:14px;right:14px;z-index:200;padding:10px 16px;border-radius:20px;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:14px;cursor:pointer;";
+    btn.onclick = ()=>{
+      DeviceOrientationEvent.requestPermission().then(r=>{
+        if(r==="granted"){
+          window.addEventListener("deviceorientation", onDeviceOrientation, true);
+          btn.remove();
+        }
+      });
+    };
+    document.body.appendChild(btn);
+  } else {
+    // Android Chrome — مباشرة بدون إذن
+    window.addEventListener("deviceorientation", onDeviceOrientation, true);
+  }
+}
+
+// ══════ RAYCAST / ZOOM ══════
+const rc = new THREE.Raycaster();
+const pt = new THREE.Vector2();
+
+function doRaycast(cx, cy){
+  pt.x =  (cx / window.innerWidth)  * 2 - 1;
+  pt.y = -(cy / window.innerHeight) * 2 + 1;
   rc.setFromCamera(pt, camera);
-  const hits=rc.intersectObjects(clickable);
-  if(hits.length) openZ(hits[0].object.userData.src);
+  const hits = rc.intersectObjects(clickable);
+  if(hits.length > 0) openZoom(hits[0].object.userData.src);
 }
+
 renderer.domElement.addEventListener("click", e=>{
-  if(e.pointerType!=="touch") tap(e.clientX,e.clientY);
+  if(e.pointerType === "touch") return;
+  doRaycast(e.clientX, e.clientY);
 });
 
-function openZ(src){
-  const img=document.getElementById("zimg");
-  img.style.opacity="0";
-  document.getElementById("overlay").classList.add("on");
-  const tmp=new Image();
-  tmp.onload=()=>{ img.src=src; img.style.transition="opacity 0.3s"; img.style.opacity="1"; };
-  tmp.src=src;
+function openZoom(src){
+  document.getElementById("zoom-img").src = src;
+  document.getElementById("fullscreen-zoom").style.display = "flex";
 }
-function closeZ(){
-  document.getElementById("overlay").classList.remove("on");
+function closeZoom(){
+  document.getElementById("fullscreen-zoom").style.display = "none";
 }
-window.closeZ=closeZ;
+window.closeZoom = closeZoom;
 
-
-// ══════════════════════════════════════════════
-//  GYROSCOPE (mobile device orientation)
-// ══════════════════════════════════════════════
-let gyroEnabled = false;
-let alphaOffset = null;
-
-function enableGyro() {
-  window.addEventListener("deviceorientation", e => {
-    if (!e.alpha && !e.beta && !e.gamma) return;
-    gyroEnabled = true;
-    if (alphaOffset === null) alphaOffset = e.alpha;
-    const a = THREE.MathUtils.degToRad(e.alpha - alphaOffset);
-    const b = THREE.MathUtils.degToRad(e.beta  - 90);
-    yaw   = -a;
-    pitch = -b;
-    pitch = Math.max(-PLIM, Math.min(PLIM, pitch));
-  }, true);
-}
-
-if (typeof DeviceOrientationEvent !== "undefined" &&
-    typeof DeviceOrientationEvent.requestPermission === "function") {
-  // iOS 13+ needs permission
-  const btn = document.createElement("button");
-  btn.textContent = "🔄 تفعيل الجيروسكوب";
-  btn.style.cssText = "position:fixed;top:14px;right:14px;z-index:200;padding:8px 14px;border-radius:20px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:13px;cursor:pointer;";
-  btn.onclick = () => {
-    DeviceOrientationEvent.requestPermission().then(r => {
-      if (r === "granted") { enableGyro(); btn.remove(); }
-    });
-  };
-  document.body.appendChild(btn);
-} else {
-  enableGyro();
-}
-// ══════════════════════════════════════════════
-//  RESIZE
-// ══════════════════════════════════════════════
-window.addEventListener("resize",()=>{
-  camera.aspect=window.innerWidth/window.innerHeight;
+// ══════ RESIZE ══════
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ══════════════════════════════════════════════
-//  RENDER LOOP
-// ══════════════════════════════════════════════
+// ══════ RENDER LOOP ══════
 function loop(){
   requestAnimationFrame(loop);
-  euler.set(pitch,yaw,0);
+  euler.set(pitch, yaw, 0);
   camera.quaternion.setFromEuler(euler);
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 loop();
+
 </script>
 </body>
 </html>

@@ -46,16 +46,16 @@ canvas { display:block; }
 
 // ══════ IMAGES ══════
 const PANELS = [
-  { src:"photo_2026-03-07_21-54-50.jpg", pos:[0,    1.6,-5  ], rotY:0    },
-  { src:"photo_2026-03-07_21-54-46.jpg", pos:[3.5,  1.6,-3.5], rotY:-45  },
-  { src:"photo_2026-03-07_21-54-41.jpg", pos:[5,    1.6, 0  ], rotY:-90  },
-  { src:"photo_2026-03-07_21-54-29.jpg", pos:[3.5,  1.6, 3.5], rotY:-135 },
-  { src:"photo_2026-03-07_21-54-35.jpg", pos:[0,    1.6, 5  ], rotY:180  },
-  { src:"photo_2026-03-07_21-54-13.jpg", pos:[-3.5, 1.6, 3.5], rotY:135  },
-  { src:"photo_2026-03-07_21-54-29.jpg", pos:[-5,   1.6, 0  ], rotY:90   },
-  { src:"photo_2026-03-07_21-54-35.jpg", pos:[-3.5, 1.6,-3.5], rotY:45   },
+  { src:"photo_2026-03-07_21-54-50.jpg", pos:[0,    1.6,-3.7], rotY:0    },
+  { src:"photo_2026-03-07_21-54-46.jpg", pos:[2.6,  1.6,-2.6], rotY:-45  },
+  { src:"photo_2026-03-07_21-54-41.jpg", pos:[3.7,  1.6, 0  ], rotY:-90  },
+  { src:"photo_2026-03-07_21-54-29.jpg", pos:[2.6,  1.6, 2.6], rotY:-135 },
+  { src:"photo_2026-03-07_21-54-35.jpg", pos:[0,    1.6, 3.7], rotY:180  },
+  { src:"photo_2026-03-07_21-54-13.jpg", pos:[-2.6, 1.6, 2.6], rotY:135  },
+  { src:"photo_2026-03-07_21-54-29.jpg", pos:[-3.7, 1.6, 0  ], rotY:90   },
+  { src:"photo_2026-03-07_21-54-35.jpg", pos:[-2.6, 1.6,-2.6], rotY:45   },
 ];
-const CEILING = { src:"photo_2026-03-07_21-54-13.jpg", pos:[0, 6, 0], rotX:90 };
+const CEILING = { src:"photo_2026-03-07_21-54-13.jpg", pos:[0, 4, 0], rotX:90 };
 
 // ══════ RENDERER ══════
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -93,7 +93,7 @@ function makeMesh(src, w, h) {
 }
 
 PANELS.forEach(p => {
-  const mesh = makeMesh(p.src, 3.5, 3.5);
+  const mesh = makeMesh(p.src, 2.8, 2.8);
   mesh.position.set(...p.pos);
   mesh.rotation.y = THREE.MathUtils.degToRad(p.rotY);
   scene.add(mesh);
