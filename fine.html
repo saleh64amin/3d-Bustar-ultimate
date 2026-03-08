@@ -1,286 +1,257 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-<title>معرض الصور — Three.js لمس كامل</title>
-
-<!-- Three.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>معرض الصور</title>
 <style>
-  html,body { margin:0; height:100%; overflow:hidden; touch-action:none; -ms-touch-action:none; }
-  #canvas-container { width:100%; height:100%; position:fixed; inset:0; background:#556B2F; }
-  .instruction {
-    position:fixed; bottom:20px; width:100%; text-align:center; color:white;
-    font-family:sans-serif; z-index:9999; pointer-events:none; text-shadow:0 1px 6px rgba(0,0,0,0.6);
-  }
-  .nav-links { position:fixed; bottom:80px; width:100%; text-align:center; z-index:9999; }
-  .nav-links a { display:inline-block; background:#556B2F; color:white; padding:10px 16px; margin:0 8px; border-radius:30px; text-decoration:none; font-weight:700; border:2px solid #6B8E23; }
-  /* overlay التكبير */
-  #fullscreen-zoom {
-    display:none;
-    position:fixed; inset:0;
-    background: rgba(0,0,0,0.95);
-    z-index:10000; justify-content:center; align-items:center; cursor:zoom-out;
-  }
-  #fullscreen-zoom img { max-width:95%; max-height:95%; border:2px solid #fff; box-shadow:0 6px 30px rgba(0,0,0,0.6); }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; touch-action:none; background:#fff; }
+canvas { display:block; }
+
+.hint {
+  position:fixed; bottom:20px; width:100%; text-align:center;
+  color:#333; font-family:sans-serif; font-size:14px;
+  z-index:100; pointer-events:none;
+  text-shadow: 0 1px 3px rgba(255,255,255,0.8);
+}
+
+#fullscreen-zoom {
+  display:none;
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.92);
+  z-index:9999;
+  justify-content:center;
+  align-items:center;
+}
+#fullscreen-zoom img {
+  max-width:95%;
+  max-height:95%;
+  border:2px solid white;
+  object-fit:contain;
+  display:block;
+}
 </style>
 </head>
 <body>
 
-<div id="canvas-container"></div>
-
-<div class="nav-links">
-  <a href="1.html">1</a>
-  <a href="2.html">2</a>
-</div>
-
-<div class="instruction">اسحب الشاشة للتحرك — اضغط الصورة للتكبير</div>
+<div class="hint">اسحب للدوران • اضغط الصورة للتكبير</div>
 
 <div id="fullscreen-zoom" onclick="closeZoom()">
-  <img id="zoom-img" src="" alt="Zoomed">
+  <img id="zoom-img" src="" alt="">
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-/* ====== إعداد الصور ====== */
-// ضع هنا أسماء صورك (9 عناصر؛ سأكرر بعض الصور كما أردت سابقًا)
-const IMAGES = [
-  'photo_2026-03-07_21-54-13.jpg',
-  'photo_2026-03-07_21-54-29.jpg',
-  'photo_2026-03-07_21-54-35.jpg',
-  'photo_2026-03-07_21-54-41.jpg',
-  'photo_2026-03-07_21-54-46.jpg',
-  'photo_2026-03-07_21-54-50.jpg',
-  'photo_2026-03-07_21-54-13.jpg', // تكرار لملء 8 حول + 1 أعلى
-  'photo_2026-03-07_21-54-29.jpg',
-  'photo_2026-03-07_21-54-35.jpg'  // الصورة العلوية
+
+// ══════ IMAGES (same as A-Frame original) ══════
+const PANELS = [
+  { src:"photo_2026-03-07_21-54-50.jpg", pos:[0,    1.6,-5  ], rotY:0    },
+  { src:"photo_2026-03-07_21-54-46.jpg", pos:[3.5,  1.6,-3.5], rotY:-45  },
+  { src:"photo_2026-03-07_21-54-41.jpg", pos:[5,    1.6, 0  ], rotY:-90  },
+  { src:"photo_2026-03-07_21-54-29.jpg", pos:[3.5,  1.6, 3.5], rotY:-135 },
+  { src:"photo_2026-03-07_21-54-35.jpg", pos:[0,    1.6, 5  ], rotY:180  },
+  { src:"photo_2026-03-07_21-54-13.jpg", pos:[-3.5, 1.6, 3.5], rotY:135  },
+  { src:"photo_2026-03-07_21-54-29.jpg", pos:[-5,   1.6, 0  ], rotY:90   },
+  { src:"photo_2026-03-07_21-54-35.jpg", pos:[-3.5, 1.6,-3.5], rotY:45   },
 ];
+const CEILING = { src:"photo_2026-03-07_21-54-13.jpg", pos:[0, 6, 0], rotX:90 };
 
-/* ====== إعداد المشهد الثلاثي الأبعاد ====== */
-const container = document.getElementById('canvas-container');
+// ══════ RENDERER ══════
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+document.body.appendChild(renderer.domElement);
+
 const scene = new THREE.Scene();
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
-renderer.setSize(container.clientWidth, container.clientHeight);
-container.appendChild(renderer.domElement);
+scene.background = new THREE.Color(0x556B2F); // same as A-Frame sky
 
-// كاميرا في موقع عين المستخدم (ارتفاع 1.6m)
-const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.05, 100);
 camera.position.set(0, 1.6, 0);
 
-// إضاءة بسيطة
-const ambient = new THREE.AmbientLight(0xffffff, 1.2);
-scene.add(ambient);
+scene.add(new THREE.AmbientLight(0xffffff, 3.5));
 
-/* ====== إنشاء طائرات الصور ووضعها حول المستخدم ====== */
-const loader = new THREE.TextureLoader();
-loader.setCrossOrigin('anonymous');
+// ══════ TEXTURES ══════
+const TL = new THREE.TextureLoader();
+const clickable = [];
 
-const planes = []; // لتخزين الكائنات للـ raycast
-const radius = 5;  // نصف القطر حول المستخدم
-const imgCount = IMAGES.length;
-
-// نستخدم أول 8 صور لتوزيعها حول الدائرة، والصورة الأخيرة ستكون فوق
-for (let i = 0; i < imgCount; i++) {
-  const src = IMAGES[i];
-  // خامة لاحقة لتحميل الصورة
-  const texture = loader.load(src);
-  // نمنع عكس الصورة (حسب الحاجة)
-  texture.minFilter = THREE.LinearFilter;
-
-  // مقاسات الطائرة (ممكن تعديل)
-  const w = (i === imgCount-1) ? 4 : 3.5;
-  const h = (i === imgCount-1) ? 4 : 3.5;
-
-  const geometry = new THREE.PlaneGeometry(w, h);
-  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-  const plane = new THREE.Mesh(geometry, material);
-
-  if (i < imgCount - 1) {
-    // وزع 8 صور بالتساوي حول الدائرة افقيًا
-    const angle = (i / (imgCount - 1)) * Math.PI * 2; // يوزع 8 نقاط حول 2π (نستخدم imgCount-1 لأن الأخيرة للأعلى)
-    const x = Math.sin(angle) * radius;
-    const z = -Math.cos(angle) * radius; // نضعها أمام الكاميرا في -z
-    plane.position.set(x, 1.6, z);
-    // واجه الطائرة نحو مركز المشهد (موقع الكاميرا)
-    plane.lookAt(new THREE.Vector3(0, 1.6, 0));
-  } else {
-    // الصورة الأخيرة في الأعلى
-    plane.position.set(0, 6, 0);
-    // استدارة بحيث تكون "مقلوبة" إلى الأسفل لتُعرض كلوحة علوية
-    plane.rotation.x = Math.PI / 2; // 90 درجة
-  }
-
-  scene.add(plane);
-  planes.push({ mesh: plane, src: src });
-}
-
-/* ====== Raycaster للنقر/اللمس (للكشف عن الصورة المضغوطة) ====== */
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-
-/* ====== عناصر التحكم باللمس (مخصصة) ======
-   - سحب الإصبع يغيّر yaw (حول المحور Y) و pitch (حول المحور X)
-   - نستعمل قيود للـ pitch لمنع قلب الكاميرا
-*/
-let dragging = false;
-let lastX = 0, lastY = 0;
-let yaw = 0;   // rotation around Y, in radians
-let pitch = 0; // rotation around X, in radians
-const sensitivity = 0.0026; // قابل للتعديل: أقل = أبطأ، أكثر = أسرع
-const maxPitch = THREE.MathUtils.degToRad(85); // أقصى انحراف عمودي
-
-// apply initial camera rotation
-camera.rotation.order = "YXZ"; // yaw (y), pitch (x), roll (z)
-function applyCameraRotation() {
-  // clamp pitch
-  if (pitch > maxPitch) pitch = maxPitch;
-  if (pitch < -maxPitch) pitch = -maxPitch;
-  camera.rotation.x = pitch;
-  camera.rotation.y = yaw;
-}
-
-// التعامل مع مؤشرات اللمس/الماوس باستخدام Pointer Events إن أمكن
-function getPointerClient(evt) {
-  if (evt.touches && evt.touches.length > 0) {
-    return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
-  } else if (evt.changedTouches && evt.changedTouches.length > 0) {
-    return { x: evt.changedTouches[0].clientX, y: evt.changedTouches[0].clientY };
-  } else {
-    return { x: evt.clientX, y: evt.clientY };
-  }
-}
-
-// بدء السحب
-function onPointerDown(e) {
-  // منع تمرير الصفحة عندما يكون اللمس داخل الحاوية
-  if (e.cancelable) e.preventDefault();
-
-  dragging = true;
-  const p = getPointerClient(e);
-  lastX = p.x;
-  lastY = p.y;
-}
-
-// أثناء السحب
-function onPointerMove(e) {
-  if (!dragging) return;
-  if (e.cancelable) e.preventDefault();
-
-  const p = getPointerClient(e);
-  const dx = p.x - lastX;
-  const dy = p.y - lastY;
-
-  // تحديث yaw/pitch (ناقص/زائد يتناسب مع الإحساس)
-  yaw -= dx * sensitivity;
-  pitch -= dy * sensitivity;
-
-  applyCameraRotation();
-
-  lastX = p.x;
-  lastY = p.y;
-}
-
-// نهاية السحب — نستخدم للكشف عن "نقرة" إذا كانت الحركة صغيرة
-let pointerDownInfo = null;
-function onPointerUp(e) {
-  if (e.cancelable) e.preventDefault();
-  const p = getPointerClient(e);
-  dragging = false;
-
-  // قياس الحركة منذ البداية
-  if (pointerDownInfo) {
-    const moved = Math.hypot(p.x - pointerDownInfo.x, p.y - pointerDownInfo.y);
-    const tapThreshold = 8; // px — إذا الحركة أقل من هذا نعتبرها tap
-    if (moved < tapThreshold) {
-      // نفعل raycast بناءً على موقع اللمس/نقرة
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((p.x - rect.left) / rect.width) * 2 - 1;
-      pointer.y = - ((p.y - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObjects(planes.map(p => p.mesh));
-      if (intersects.length > 0) {
-        const hit = intersects[0].object;
-        // نبحث المصدر من الطائرة المتقابلة
-        const found = planes.find(p => p.mesh === hit);
-        if (found) {
-          openZoom(found.src);
-        }
-      }
-    }
-  }
-  pointerDownInfo = null;
-}
-
-/* مسجّل بداية اللمس (نحفظ نقطة البداية) */
-function onPointerStart(e) {
-  if (e.cancelable) e.preventDefault();
-  pointerDownInfo = getPointerClient(e);
-  onPointerDown(e);
-}
-
-/* تسجيل الأحداث: pointer events مع دعم fallback للـ touch/mouse */
-renderer.domElement.addEventListener('pointerdown', onPointerStart, { passive: false });
-window.addEventListener('pointermove', onPointerMove, { passive: false });
-window.addEventListener('pointerup', onPointerUp, { passive: false });
-
-// Fallback قد لا يكون ضرورياً على معظم الأجهزة الحديثة، لكنه آمن
-renderer.domElement.addEventListener('touchstart', onPointerStart, { passive: false });
-window.addEventListener('touchmove', onPointerMove, { passive: false });
-window.addEventListener('touchend', onPointerUp, { passive: false });
-
-renderer.domElement.addEventListener('mousedown', onPointerStart, { passive: false });
-window.addEventListener('mousemove', onPointerMove, { passive: false });
-window.addEventListener('mouseup', onPointerUp, { passive: false });
-
-/* منع تمرير الصفحة عندما يكون الـ touch داخل الـ container (خاصة Chrome Android) */
-document.addEventListener('touchmove', function(e) {
-  try {
-    if (e.target && e.target.closest && e.target.closest('#canvas-container')) {
-      e.preventDefault();
-    }
-  } catch (err) {}
-}, { passive: false });
-
-/* عند إعادة التحجيم */
-window.addEventListener('resize', onWindowResize, false);
-function onWindowResize() {
-  camera.aspect = container.clientWidth / container.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(container.clientWidth, container.clientHeight);
-}
-
-/* ==== دالة التكبير (فتح overlay) ==== */
-function openZoom(src) {
-  const overlay = document.getElementById('fullscreen-zoom');
-  const img = document.getElementById('zoom-img');
-  img.src = src;
-  overlay.style.display = 'flex';
-}
-function closeZoom(){ document.getElementById('fullscreen-zoom').style.display = 'none'; }
-
-/* ==== حلقة العرض ===== */
-function animate() {
-  requestAnimationFrame(animate);
-
-  // لضمان أن الطائرات تواجه الكاميرا دائماً (حتى بعد تدوير الكاميرا)
-  planes.forEach(p => {
-    // إذا كانت الصورة ليست العلوية
-    if (p.mesh.position.y !== 6) {
-      // نجعل الطائرة تنظر نحو موقع الكاميرا (المركز في الارتفاع 1.6)
-      const target = new THREE.Vector3(camera.position.x, p.mesh.position.y, camera.position.z);
-      p.mesh.lookAt(target);
-    }
+function makeMesh(src, w, h) {
+  const mat  = new THREE.MeshBasicMaterial({ color:0xffffff });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  mesh.userData.src = src;
+  TL.load(src, tex => {
+    tex.encoding     = THREE.sRGBEncoding;
+    tex.anisotropy   = renderer.capabilities.getMaxAnisotropy();
+    tex.minFilter    = THREE.LinearMipmapLinearFilter;
+    tex.magFilter    = THREE.LinearFilter;
+    mat.map = tex;
+    mat.needsUpdate = true;
   });
+  clickable.push(mesh);
+  return mesh;
+}
 
+// ══════ PLACE WALL PANELS ══════
+PANELS.forEach(p => {
+  const mesh = makeMesh(p.src, 3.5, 3.5);
+  mesh.position.set(...p.pos);
+  mesh.rotation.y = THREE.MathUtils.degToRad(p.rotY);
+  scene.add(mesh);
+});
+
+// ══════ CEILING — rotation.x = 90deg faces downward (same as A-Frame) ══════
+const ceil = makeMesh(CEILING.src, 4, 4);
+ceil.position.set(...CEILING.pos);
+ceil.rotation.x = THREE.MathUtils.degToRad(CEILING.rotX); // 90 = face down toward viewer
+scene.add(ceil);
+
+// ══════ LOOK CONTROLS (drag) ══════
+let yaw=0, pitch=0;
+let dragging=false, lx=0, ly=0;
+const SENS = 0.003;
+const PLIM = Math.PI / 2.1;
+const euler = new THREE.Euler(0,0,0,"YXZ");
+
+function startDrag(x,y){ dragging=true; lx=x; ly=y; }
+function stopDrag(){ dragging=false; }
+function onDrag(x,y){
+  if(!dragging) return;
+  yaw   -= (x-lx)*SENS;
+  pitch -= (y-ly)*SENS;
+  pitch  = Math.max(-PLIM, Math.min(PLIM, pitch));
+  lx=x; ly=y;
+}
+
+renderer.domElement.addEventListener("mousedown",  e=>startDrag(e.clientX,e.clientY));
+window.addEventListener("mouseup",   stopDrag);
+window.addEventListener("mousemove", e=>onDrag(e.clientX,e.clientY));
+
+// ══════ TOUCH — separate drag vs tap ══════
+let touchStartX=0, touchStartY=0, touchMoved=false;
+
+renderer.domElement.addEventListener("touchstart", e=>{
+  e.preventDefault();
+  touchMoved = false;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  startDrag(touchStartX, touchStartY);
+}, { passive:false });
+
+renderer.domElement.addEventListener("touchmove", e=>{
+  e.preventDefault();
+  const dx = Math.abs(e.touches[0].clientX - touchStartX);
+  const dy = Math.abs(e.touches[0].clientY - touchStartY);
+  if(dx > 5 || dy > 5) touchMoved = true;
+  onDrag(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive:false });
+
+renderer.domElement.addEventListener("touchend", e=>{
+  e.preventDefault();
+  stopDrag();
+  if(!touchMoved){
+    // It's a tap — do raycast at touch position
+    const t = e.changedTouches[0];
+    doRaycast(t.clientX, t.clientY);
+  }
+}, { passive:false });
+
+// ══════ GYROSCOPE — same approach as A-Frame magicWindowTrackingEnabled ══════
+// A-Frame uses device orientation quaternion directly. We replicate that.
+let gyroYawOffset = null;
+
+function onDeviceOrientation(e){
+  if(e.alpha === null || e.beta === null || e.gamma === null) return;
+
+  // Convert to radians
+  const alpha  = THREE.MathUtils.degToRad(e.alpha);  // z-axis rotation (compass)
+  const beta   = THREE.MathUtils.degToRad(e.beta);   // x-axis (front-back tilt)
+  const gamma  = THREE.MathUtils.degToRad(e.gamma);  // y-axis (left-right tilt)
+
+  // Build orientation quaternion exactly like A-Frame / browser VR
+  const q = new THREE.Quaternion();
+  const zee = new THREE.Vector3(0,0,1);
+  const euler_q = new THREE.Euler();
+  const q0 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+
+  euler_q.set(beta, alpha, -gamma, "YXZ");
+  q.setFromEuler(euler_q);
+  q.multiply(q0);
+
+  // Extract yaw and pitch from quaternion
+  const mat = new THREE.Matrix4().makeRotationFromQuaternion(q);
+  const e2  = new THREE.Euler().setFromRotationMatrix(mat, "YXZ");
+
+  if(gyroYawOffset === null) gyroYawOffset = e2.y;
+  yaw   = -(e2.y - gyroYawOffset);
+  pitch = e2.x;
+  pitch = Math.max(-PLIM, Math.min(PLIM, pitch));
+}
+
+if(typeof DeviceOrientationEvent !== "undefined"){
+  if(typeof DeviceOrientationEvent.requestPermission === "function"){
+    // iOS 13+
+    const btn = document.createElement("button");
+    btn.textContent = "🔄 تفعيل الجيروسكوب";
+    btn.style.cssText = "position:fixed;top:14px;right:14px;z-index:200;padding:10px 16px;border-radius:20px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;cursor:pointer;";
+    btn.onclick = ()=>{
+      DeviceOrientationEvent.requestPermission().then(r=>{
+        if(r==="granted"){ window.addEventListener("deviceorientation", onDeviceOrientation, true); btn.remove(); }
+      });
+    };
+    document.body.appendChild(btn);
+  } else {
+    // Android Chrome — fires directly, no permission needed
+    window.addEventListener("deviceorientation", onDeviceOrientation, true);
+  }
+}
+
+// ══════ RAYCAST / ZOOM ══════
+const rc = new THREE.Raycaster();
+const pt = new THREE.Vector2();
+
+function doRaycast(cx, cy){
+  pt.x =  (cx / window.innerWidth)  * 2 - 1;
+  pt.y = -(cy / window.innerHeight) * 2 + 1;
+  rc.setFromCamera(pt, camera);
+  const hits = rc.intersectObjects(clickable);
+  if(hits.length > 0){
+    openZoom(hits[0].object.userData.src);
+  }
+}
+
+renderer.domElement.addEventListener("click", e=>{
+  // desktop only — touch handled above
+  if(e.pointerType === "touch") return;
+  doRaycast(e.clientX, e.clientY);
+});
+
+function openZoom(src){
+  const img = document.getElementById("zoom-img");
+  img.src = src;
+  document.getElementById("fullscreen-zoom").style.display = "flex";
+}
+function closeZoom(){
+  document.getElementById("fullscreen-zoom").style.display = "none";
+}
+window.closeZoom = closeZoom;
+
+// ══════ RESIZE ══════
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ══════ RENDER LOOP ══════
+function loop(){
+  requestAnimationFrame(loop);
+  euler.set(pitch, yaw, 0);
+  camera.quaternion.setFromEuler(euler);
   renderer.render(scene, camera);
 }
-applyCameraRotation();
-animate();
+loop();
 
-/* تجربة حساسية: يمكنك تعديل المتغير sensitivity أعلاه إذا أردت حركة أبطأ/أسرع */
 </script>
 </body>
 </html>

@@ -44,7 +44,7 @@ canvas { display:block; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 
-// ══════ IMAGES (same as A-Frame original) ══════
+// ══════ IMAGES ══════
 const PANELS = [
   { src:"photo_2026-03-07_21-54-50.jpg", pos:[0,    1.6,-5  ], rotY:0    },
   { src:"photo_2026-03-07_21-54-46.jpg", pos:[3.5,  1.6,-3.5], rotY:-45  },
@@ -65,7 +65,7 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x556B2F); // same as A-Frame sky
+scene.background = new THREE.Color(0x556B2F);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.05, 100);
 camera.position.set(0, 1.6, 0);
@@ -81,10 +81,10 @@ function makeMesh(src, w, h) {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   mesh.userData.src = src;
   TL.load(src, tex => {
-    tex.encoding     = THREE.sRGBEncoding;
-    tex.anisotropy   = renderer.capabilities.getMaxAnisotropy();
-    tex.minFilter    = THREE.LinearMipmapLinearFilter;
-    tex.magFilter    = THREE.LinearFilter;
+    tex.encoding   = THREE.sRGBEncoding;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    tex.minFilter  = THREE.LinearMipmapLinearFilter;
+    tex.magFilter  = THREE.LinearFilter;
     mat.map = tex;
     mat.needsUpdate = true;
   });
@@ -92,7 +92,6 @@ function makeMesh(src, w, h) {
   return mesh;
 }
 
-// ══════ PLACE WALL PANELS ══════
 PANELS.forEach(p => {
   const mesh = makeMesh(p.src, 3.5, 3.5);
   mesh.position.set(...p.pos);
@@ -100,13 +99,12 @@ PANELS.forEach(p => {
   scene.add(mesh);
 });
 
-// ══════ CEILING — rotation.x = 90deg faces downward (same as A-Frame) ══════
 const ceil = makeMesh(CEILING.src, 4, 4);
 ceil.position.set(...CEILING.pos);
-ceil.rotation.x = THREE.MathUtils.degToRad(CEILING.rotX); // 90 = face down toward viewer
+ceil.rotation.x = THREE.MathUtils.degToRad(CEILING.rotX);
 scene.add(ceil);
 
-// ══════ LOOK CONTROLS (drag) ══════
+// ══════ DRAG CONTROLS ══════
 let yaw=0, pitch=0;
 let dragging=false, lx=0, ly=0;
 const SENS = 0.003;
@@ -117,7 +115,7 @@ function startDrag(x,y){ dragging=true; lx=x; ly=y; }
 function stopDrag(){ dragging=false; }
 function onDrag(x,y){
   if(!dragging) return;
-  yaw   -= (x-lx)*SENS;
+  yaw   += (x-lx)*SENS;
   pitch -= (y-ly)*SENS;
   pitch  = Math.max(-PLIM, Math.min(PLIM, pitch));
   lx=x; ly=y;
@@ -127,12 +125,12 @@ renderer.domElement.addEventListener("mousedown",  e=>startDrag(e.clientX,e.clie
 window.addEventListener("mouseup",   stopDrag);
 window.addEventListener("mousemove", e=>onDrag(e.clientX,e.clientY));
 
-// ══════ TOUCH — separate drag vs tap ══════
+// ══════ TOUCH ══════
 let touchStartX=0, touchStartY=0, touchMoved=false;
 
 renderer.domElement.addEventListener("touchstart", e=>{
   e.preventDefault();
-  touchMoved = false;
+  touchMoved  = false;
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
   startDrag(touchStartX, touchStartY);
@@ -150,42 +148,52 @@ renderer.domElement.addEventListener("touchend", e=>{
   e.preventDefault();
   stopDrag();
   if(!touchMoved){
-    // It's a tap — do raycast at touch position
     const t = e.changedTouches[0];
     doRaycast(t.clientX, t.clientY);
   }
 }, { passive:false });
 
-// ══════ GYROSCOPE — same approach as A-Frame magicWindowTrackingEnabled ══════
-// A-Frame uses device orientation quaternion directly. We replicate that.
-let gyroYawOffset = null;
+// ══════ GYROSCOPE — نفس منطق A-Frame magicWindowTrackingEnabled ══════
+// المتغيرات
+const _q        = new THREE.Quaternion();
+const _qScreen  = new THREE.Quaternion(); // تصحيح اتجاه الشاشة
+const _euler    = new THREE.Euler();
+// تصحيح المحور: شاشة عمودية = دوران -90 حول X
+_qScreen.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI/2);
+
+let _qBase = null;  // نقطة البداية (الصفر)
+let gyroOn = false;
 
 function onDeviceOrientation(e){
   if(e.alpha === null || e.beta === null || e.gamma === null) return;
 
-  // Convert to radians
-  const alpha  = THREE.MathUtils.degToRad(e.alpha);  // z-axis rotation (compass)
-  const beta   = THREE.MathUtils.degToRad(e.beta);   // x-axis (front-back tilt)
-  const gamma  = THREE.MathUtils.degToRad(e.gamma);  // y-axis (left-right tilt)
+  // نفس A-Frame: بناء quaternion من زوايا الجهاز
+  _euler.set(
+    THREE.MathUtils.degToRad(e.beta),
+    THREE.MathUtils.degToRad(e.alpha),
+    -THREE.MathUtils.degToRad(e.gamma),
+    "YXZ"
+  );
+  _q.setFromEuler(_euler);
 
-  // Build orientation quaternion exactly like A-Frame / browser VR
-  const q = new THREE.Quaternion();
-  const zee = new THREE.Vector3(0,0,1);
-  const euler_q = new THREE.Euler();
-  const q0 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+  // تصحيح اتجاه الشاشة (نفس ما يفعله A-Frame)
+  _q.multiply(_qScreen);
 
-  euler_q.set(beta, alpha, -gamma, "YXZ");
-  q.setFromEuler(euler_q);
-  q.multiply(q0);
+  // أول قراءة = نقطة الصفر
+  if(_qBase === null){
+    _qBase = _q.clone().invert();
+  }
 
-  // Extract yaw and pitch from quaternion
-  const mat = new THREE.Matrix4().makeRotationFromQuaternion(q);
-  const e2  = new THREE.Euler().setFromRotationMatrix(mat, "YXZ");
+  // الدوران النسبي
+  const relQ = _qBase.clone().premultiply(_q);
 
-  if(gyroYawOffset === null) gyroYawOffset = e2.y;
-  yaw   = -(e2.y - gyroYawOffset);
-  pitch = e2.x;
-  pitch = Math.max(-PLIM, Math.min(PLIM, pitch));
+  // استخرج yaw و pitch من الـ quaternion
+  const m  = new THREE.Matrix4().makeRotationFromQuaternion(relQ);
+  const eu = new THREE.Euler().setFromRotationMatrix(m, "YXZ");
+
+  yaw   = eu.y;
+  pitch = Math.max(-PLIM, Math.min(PLIM, eu.x));
+  gyroOn = true;
 }
 
 if(typeof DeviceOrientationEvent !== "undefined"){
@@ -193,15 +201,18 @@ if(typeof DeviceOrientationEvent !== "undefined"){
     // iOS 13+
     const btn = document.createElement("button");
     btn.textContent = "🔄 تفعيل الجيروسكوب";
-    btn.style.cssText = "position:fixed;top:14px;right:14px;z-index:200;padding:10px 16px;border-radius:20px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;cursor:pointer;";
+    btn.style.cssText = "position:fixed;top:14px;right:14px;z-index:200;padding:10px 16px;border-radius:20px;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:14px;cursor:pointer;";
     btn.onclick = ()=>{
       DeviceOrientationEvent.requestPermission().then(r=>{
-        if(r==="granted"){ window.addEventListener("deviceorientation", onDeviceOrientation, true); btn.remove(); }
+        if(r==="granted"){
+          window.addEventListener("deviceorientation", onDeviceOrientation, true);
+          btn.remove();
+        }
       });
     };
     document.body.appendChild(btn);
   } else {
-    // Android Chrome — fires directly, no permission needed
+    // Android Chrome — مباشرة بدون إذن
     window.addEventListener("deviceorientation", onDeviceOrientation, true);
   }
 }
@@ -215,20 +226,16 @@ function doRaycast(cx, cy){
   pt.y = -(cy / window.innerHeight) * 2 + 1;
   rc.setFromCamera(pt, camera);
   const hits = rc.intersectObjects(clickable);
-  if(hits.length > 0){
-    openZoom(hits[0].object.userData.src);
-  }
+  if(hits.length > 0) openZoom(hits[0].object.userData.src);
 }
 
 renderer.domElement.addEventListener("click", e=>{
-  // desktop only — touch handled above
   if(e.pointerType === "touch") return;
   doRaycast(e.clientX, e.clientY);
 });
 
 function openZoom(src){
-  const img = document.getElementById("zoom-img");
-  img.src = src;
+  document.getElementById("zoom-img").src = src;
   document.getElementById("fullscreen-zoom").style.display = "flex";
 }
 function closeZoom(){
