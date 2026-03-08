@@ -1,122 +1,80 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>معرض الصور — Chrome fix</title>
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+<title>معرض الصور — touch + gyro مستقل</title>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-
 <style>
-  /* Prevent page scrolling and overscroll when interacting with the scene */
-  html, body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden;                 /* prevents page scroll */
-    overscroll-behavior: none;        /* prevents pull-to-refresh / overscroll */
-    -webkit-overflow-scrolling: touch;
-    touch-action: none;               /* tell browser we will handle touch */
-    -ms-touch-action: none;
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
+    -ms-touch-action:none;
   }
+  a-scene, canvas { touch-action:none; -ms-touch-action:none; width:100%; height:100%; }
 
-  /* Ensure the scene and canvas don't let browser take the touch events */
-  a-scene, canvas { 
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    -ms-touch-action: none;
+  /* زر تفعيل الجيروسكوب */
+  #gyroToggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 9999;
+    background: rgba(255,255,255,0.95);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: sans-serif;
+    font-weight: bold;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+  #gyroToggle.active { background: #4caf50; color: white; }
+
+  .instruction {
+    position:fixed;
+    bottom:12px;
+    width:100%;
+    text-align:center;
+    z-index:9998;
+    font-family:sans-serif;
+    color:white;
+    text-shadow:0 1px 4px rgba(0,0,0,0.6);
+    pointer-events:none;
   }
 
   #fullscreen-zoom{
     display:none;
     position:fixed;
-    top:0; left:0;
-    width:100%; height:100%;
+    inset:0;
     background:rgba(0,0,0,0.9);
-    z-index:9999;
+    z-index:99999;
     justify-content:center;
     align-items:center;
     cursor:zoom-out;
   }
-  #fullscreen-zoom img{
-    max-width:95%;
-    max-height:95%;
-    border:2px solid white;
-  }
+  #fullscreen-zoom img{ max-width:95%; max-height:95%; border:2px solid #fff; }
 
-  .instruction{
-    position:fixed;
-    bottom:20px;
-    width:100%;
-    text-align:center;
-    color:white;
-    font-family:sans-serif;
-    z-index:100;
-    pointer-events:none;
-  }
+  /* روابط (اختياري) */
+  .nav-links { position: fixed; bottom:64px; width:100%; text-align:center; z-index:9999; }
+  .nav-links a { display:inline-block; background:#556B2F; color:white; padding:8px 14px; margin:0 8px; border-radius:24px; text-decoration:none; font-weight:600; }
 </style>
-
-<script>
-  /* Zoom-on-tap component (tap only; no gaze/fuse) */
-  AFRAME.registerComponent('zoom-logic', {
-    init: function () {
-      const overlay = document.getElementById('fullscreen-zoom');
-      const zoomImg = overlay.querySelector('img');
-
-      // click/tap -> open overlay
-      this.el.addEventListener('click', (evt) => {
-        const src = this.el.getAttribute('src');
-        zoomImg.src = src;
-        overlay.style.display = 'flex';
-      });
-
-      // on touchstart we also accept taps (mobile)
-      this.el.addEventListener('touchstart', (evt) => {
-        // don't preventDefault here; we want look-controls to get moves
-        // only open overlay on quick taps — but to keep it simple, we open on touchstart
-        const src = this.el.getAttribute('src');
-        zoomImg.src = src;
-        overlay.style.display = 'flex';
-      }, {passive: true});
-    }
-  });
-
-  function closeZoom(){
-    document.getElementById('fullscreen-zoom').style.display = 'none';
-  }
-
-  /* Chrome fix: prevent page scrolling when touch is on the A-Frame scene.
-     We only block the default when the touch target is inside <a-scene>.
-     Use passive:false to allow preventDefault(). */
-  document.addEventListener('DOMContentLoaded', function () {
-    document.addEventListener('touchmove', function (e) {
-      try {
-        // if the touch started inside the A-Frame scene or on its canvas, stop the browser scroll
-        const t = e.target;
-        if (t && t.closest && t.closest('a-scene')) {
-          // prevent page scrolling so A-Frame's look-controls receives the vertical drag
-          e.preventDefault();
-        }
-      } catch (err) {
-        // ignore
-      }
-    }, { passive: false }); // <-- important: passive:false so preventDefault works in Chrome
-  });
-</script>
 </head>
 <body>
 
-<div class="instruction">اسحب الشاشة للتحرك — اضغط الصورة للتكبير</div>
+<button id="gyroToggle" title="تفعيل/إيقاف حركة الهاتف">تفعيل حركة الهاتف</button>
 
-<div id="fullscreen-zoom" onclick="closeZoom()">
-  <img src="" alt="zoomed image">
-</div>
+<div class="instruction">اسحب الشاشة للتحرك — اضغط الصورة للتكبير</div>
+<div class="nav-links"><a href="1.html">1</a><a href="2.html">2</a></div>
+
+<div id="fullscreen-zoom" onclick="closeZoom()"><img src="" alt="zoom"></div>
 
 <a-scene renderer="antialias:true; colorManagement:true" vr-mode-ui="enabled:false">
   <a-sky color="#556B2F"></a-sky>
   <a-entity light="type:ambient; intensity:1.5"></a-entity>
 
-  <!-- 8 images around -->
+  <!-- 8 صور حول -->
   <a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 1.6 -5" width="3.5" height="3.5"></a-image>
   <a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="3.5 1.6 -3.5" rotation="0 -45 0" width="3.5" height="3.5"></a-image>
   <a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="5 1.6 0" rotation="0 -90 0" width="3.5" height="3.5"></a-image>
@@ -125,21 +83,197 @@
   <a-image zoom-logic src="photo_2026-03-07_21-54-50.jpg" position="-3.5 1.6 3.5" rotation="0 135 0" width="3.5" height="3.5"></a-image>
   <a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="-5 1.6 0" rotation="0 90 0" width="3.5" height="3.5"></a-image>
   <a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="-3.5 1.6 -3.5" rotation="0 45 0" width="3.5" height="3.5"></a-image>
-
-  <!-- image above -->
+  <!-- صورة أعلى -->
   <a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="0 6 0" rotation="90 0 0" width="4" height="4"></a-image>
 
-  <!-- Camera: touch drag + device motion (magic window) -->
-  <a-entity camera position="0 1.6 0"
-            look-controls="touchEnabled: true; mouseEnabled: true; magicWindowTrackingEnabled: true; reverseTouchDrag: false; pointerLockEnabled: false">
-    <a-entity geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
-              material="color: white; shader: flat"
-              position="0 0 -2" scale="0.3 0.3 0.3"></a-entity>
-
-    <!-- cursor from camera, fuse disabled so no gaze zoom -->
-    <a-entity cursor="fuse: false; rayOrigin: entity" raycaster="objects: a-image"></a-entity>
+  <!-- الكاميرا: سنستخدم look-controls لكن نعطّل اللمس الداخلي لأننا سنعالج اللمس عبر touch-look -->
+  <a-entity id="cameraRig" position="0 1.6 0">
+    <!-- هنا نترك look-controls لتفعيل/تعطيل الـ magicWindow (gyro) فقط -->
+    <a-entity id="theCam" camera
+              look-controls="touchEnabled: false; mouseEnabled: true; magicWindowTrackingEnabled: false; pointerLockEnabled: false">
+      <!-- مؤشر صغير -->
+      <a-entity geometry="primitive:ring; radiusInner:0.01; radiusOuter:0.015"
+                material="color:white; shader:flat"
+                position="0 0 -2" scale="0.3 0.3 0.3"></a-entity>
+      <!-- cursor من الكاميرا لتمكين الضغط على الصور -->
+      <a-entity cursor="fuse:false; rayOrigin:entity" raycaster="objects:a-image"></a-entity>
+    </a-entity>
   </a-entity>
 </a-scene>
 
+<script>
+/* ==== zoom-logic: افتح صور التكبير عند الضغط/اللمس فقط (لا gaze/fuse) ==== */
+AFRAME.registerComponent('zoom-logic', {
+  init: function () {
+    const overlay = document.getElementById('fullscreen-zoom');
+    const zoomImg = overlay.querySelector('img');
+
+    this.el.addEventListener('click', (e) => {
+      zoomImg.src = this.el.getAttribute('src');
+      overlay.style.display = 'flex';
+    });
+
+    // on mobile touchstart also open (quick tap)
+    this.el.addEventListener('touchstart', (e) => {
+      zoomImg.src = this.el.getAttribute('src');
+      overlay.style.display = 'flex';
+    }, {passive: true});
+  }
+});
+
+function closeZoom(){ document.getElementById('fullscreen-zoom').style.display = 'none'; }
+
+/* ==== Chrome fix: منع تمرير الصفحة إذا كان اللمس داخل المشهد ==== */
+document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('touchmove', function (e) {
+    try {
+      const t = e.target;
+      if (t && t.closest && t.closest('a-scene')) {
+        e.preventDefault(); // مهم في Chrome ليصل vertical drag للـ touch handlers
+      }
+    } catch (err) {}
+  }, { passive: false });
+});
+
+/* ==== touch-look component: تحكم بالسحب (يسار/يمين/أعلى/أسفل) على الكاميرا ==== */
+/* هذا يضمن سحبًا مستقلاً يعمل في كل الاتجاهات، مستقل عن حالة الجيروسكوب */
+AFRAME.registerComponent('touch-look', {
+  schema: {
+    sensitivity: { type: 'number', default: 0.12 }, // قابل للتعديل: أكبر = حركة أسرع
+    maxPitch: { type: 'number', default: 89 }       // منع قلب الكاميرا
+  },
+  init: function () {
+    this.cameraEl = document.getElementById('theCam');
+    this.pitch = 0; // درجة النظر عموديًا
+    this.yaw = 0;   // درجة النظر أفقيًا
+
+    // نأخذ الدوران الابتدائي (بدرجات)
+    const rot = this.cameraEl.getAttribute('rotation') || { x:0, y:0, z:0 };
+    this.pitch = rot.x;
+    this.yaw = rot.y;
+
+    this.dragging = false;
+    this.startX = 0; this.startY = 0;
+
+    // Bind handlers
+    this.onPointerDown = this.onPointerDown.bind(this);
+    this.onPointerMove = this.onPointerMove.bind(this);
+    this.onPointerUp = this.onPointerUp.bind(this);
+
+    // استمع لكل من الماوس واللمس
+    window.addEventListener('mousedown', this.onPointerDown, { passive: false });
+    window.addEventListener('touchstart', this.onPointerDown, { passive: false });
+  },
+  onPointerDown: function (evt) {
+    // نمنع السلوك الافتراضي فقط حين اللمس داخل الـ a-scene (حتى لا يمنع أشياء أخرى)
+    if (evt.cancelable) evt.preventDefault();
+
+    const p = (evt.touches && evt.touches[0]) || evt;
+    this.startX = p.clientX;
+    this.startY = p.clientY;
+    this.dragging = true;
+
+    window.addEventListener('mousemove', this.onPointerMove, { passive: false });
+    window.addEventListener('mouseup', this.onPointerUp, { passive: true });
+    window.addEventListener('touchmove', this.onPointerMove, { passive: false });
+    window.addEventListener('touchend', this.onPointerUp, { passive: true });
+  },
+  onPointerMove: function (evt) {
+    if (!this.dragging) return;
+    if (evt.cancelable) evt.preventDefault();
+
+    const p = (evt.touches && evt.touches[0]) || evt;
+    const dx = p.clientX - this.startX;
+    const dy = p.clientY - this.startY;
+
+    // تحديث yaw/pitch (نستخدم الحساسية)
+    this.yaw -= dx * this.data.sensitivity * 0.1;   // ناقص لتناسب إحساس السحب
+    this.pitch -= dy * this.data.sensitivity * 0.1; // ناقص لأن السحب لأعلى يجعلنا ننظر لأعلى
+
+    // قيد الـ pitch بين -maxPitch و +maxPitch
+    const maxP = Math.max(1, this.data.maxPitch);
+    if (this.pitch > maxP) this.pitch = maxP;
+    if (this.pitch < -maxP) this.pitch = -maxP;
+
+    // تطبيق الدوران على الكاميرا (A-Frame uses rotation.x = pitch, rotation.y = yaw)
+    this.cameraEl.setAttribute('rotation', { x: this.pitch, y: this.yaw, z: 0 });
+
+    // تحديث البداية لتراكم النسبي (بدلاً من إعادة الحساب من الصفر)
+    this.startX = p.clientX;
+    this.startY = p.clientY;
+  },
+  onPointerUp: function (evt) {
+    this.dragging = false;
+    window.removeEventListener('mousemove', this.onPointerMove);
+    window.removeEventListener('mouseup', this.onPointerUp);
+    window.removeEventListener('touchmove', this.onPointerMove);
+    window.removeEventListener('touchend', this.onPointerUp);
+  },
+  remove: function () {
+    window.removeEventListener('mousedown', this.onPointerDown);
+    window.removeEventListener('touchstart', this.onPointerDown);
+  }
+});
+
+/* ثبت touch-look على عنصر الكاميرا (يعمل دائماً، مستقل عن الجيروسكوب) */
+document.addEventListener('DOMContentLoaded', function () {
+  const camEl = document.getElementById('theCam');
+  camEl.setAttribute('touch-look', 'sensitivity:0.12; maxPitch:89');
+});
+
+/* ==== زر التبديل للجيروسكوب: يفعل/يعطل magicWindowTracking داخل look-controls ==== */
+(function () {
+  const btn = document.getElementById('gyroToggle');
+  let gyroActive = false;
+
+  function updateButton() {
+    btn.textContent = gyroActive ? 'إيقاف حركة الهاتف' : 'تفعيل حركة الهاتف';
+    btn.classList.toggle('active', gyroActive);
+  }
+
+  async function enableGyro() {
+    // بعض أجهزة iOS تطلب إذناً صريحاً
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== 'granted') {
+          alert('يرجى السماح بحركة الجهاز للاستفادة من الجيروسكوب.');
+          return false;
+        }
+      } catch (err) {
+        console.warn('طلب إذن الجيروسكوب فشل', err);
+        // نتابع لأن بعض المتصفحات قد لا تحتاج الطلب
+      }
+    }
+    // فعّل magicWindowTracking في look-controls
+    const theCam = document.getElementById('theCam');
+    theCam.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; mouseEnabled: true;');
+    gyroActive = true;
+    updateButton();
+    return true;
+  }
+
+  function disableGyro() {
+    const theCam = document.getElementById('theCam');
+    theCam.setAttribute('look-controls', 'magicWindowTrackingEnabled: false; touchEnabled: false; mouseEnabled: true;');
+    gyroActive = false;
+    updateButton();
+  }
+
+  btn.addEventListener('click', async function () {
+    if (!gyroActive) {
+      const ok = await enableGyro();
+      if (!ok) return;
+    } else {
+      disableGyro();
+    }
+  });
+
+  // الحالة الافتراضية: Gyro معطّل
+  updateButton();
+})();
+
+</script>
 </body>
 </html>
