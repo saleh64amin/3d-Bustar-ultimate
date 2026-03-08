@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+<title>معرض الصور — Three.js لمس كامل</title>
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+
+<style>
+  html,body { margin:0; height:100%; overflow:hidden; touch-action:none; -ms-touch-action:none; }
+  #canvas-container { width:100%; height:100%; position:fixed; inset:0; background:#556B2F; }
+  .instruction {
+    position:fixed; bottom:20px; width:100%; text-align:center; color:white;
+    font-family:sans-serif; z-index:9999; pointer-events:none; text-shadow:0 1px 6px rgba(0,0,0,0.6);
+  }
+  .nav-links { position:fixed; bottom:80px; width:100%; text-align:center; z-index:9999; }
+  .nav-links a { display:inline-block; background:#556B2F; color:white; padding:10px 16px; margin:0 8px; border-radius:30px; text-decoration:none; font-weight:700; border:2px solid #6B8E23; }
+  /* overlay التكبير */
+  #fullscreen-zoom {
+    display:none;
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.95);
+    z-index:10000; justify-content:center; align-items:center; cursor:zoom-out;
+  }
+  #fullscreen-zoom img { max-width:95%; max-height:95%; border:2px solid #fff; box-shadow:0 6px 30px rgba(0,0,0,0.6); }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div class="nav-links">
+  <a href="1.html">1</a>
+  <a href="2.html">2</a>
+</div>
+
+<div class="instruction">اسحب الشاشة للتحرك — اضغط الصورة للتكبير</div>
+
+<div id="fullscreen-zoom" onclick="closeZoom()">
+  <img id="zoom-img" src="" alt="Zoomed">
+</div>
+
+<script>
+/* ====== إعداد الصور ====== */
+// ضع هنا أسماء صورك (9 عناصر؛ سأكرر بعض الصور كما أردت سابقًا)
+const IMAGES = [
+  'photo_2026-03-07_21-54-13.jpg',
+  'photo_2026-03-07_21-54-29.jpg',
+  'photo_2026-03-07_21-54-35.jpg',
+  'photo_2026-03-07_21-54-41.jpg',
+  'photo_2026-03-07_21-54-46.jpg',
+  'photo_2026-03-07_21-54-50.jpg',
+  'photo_2026-03-07_21-54-13.jpg', // تكرار لملء 8 حول + 1 أعلى
+  'photo_2026-03-07_21-54-29.jpg',
+  'photo_2026-03-07_21-54-35.jpg'  // الصورة العلوية
+];
+
+/* ====== إعداد المشهد الثلاثي الأبعاد ====== */
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
+renderer.setSize(container.clientWidth, container.clientHeight);
+container.appendChild(renderer.domElement);
+
+// كاميرا في موقع عين المستخدم (ارتفاع 1.6m)
+const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
+camera.position.set(0, 1.6, 0);
+
+// إضاءة بسيطة
+const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+scene.add(ambient);
+
+/* ====== إنشاء طائرات الصور ووضعها حول المستخدم ====== */
+const loader = new THREE.TextureLoader();
+loader.setCrossOrigin('anonymous');
+
+const planes = []; // لتخزين الكائنات للـ raycast
+const radius = 5;  // نصف القطر حول المستخدم
+const imgCount = IMAGES.length;
+
+// نستخدم أول 8 صور لتوزيعها حول الدائرة، والصورة الأخيرة ستكون فوق
+for (let i = 0; i < imgCount; i++) {
+  const src = IMAGES[i];
+  // خامة لاحقة لتحميل الصورة
+  const texture = loader.load(src);
+  // نمنع عكس الصورة (حسب الحاجة)
+  texture.minFilter = THREE.LinearFilter;
+
+  // مقاسات الطائرة (ممكن تعديل)
+  const w = (i === imgCount-1) ? 4 : 3.5;
+  const h = (i === imgCount-1) ? 4 : 3.5;
+
+  const geometry = new THREE.PlaneGeometry(w, h);
+  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+  const plane = new THREE.Mesh(geometry, material);
+
+  if (i < imgCount - 1) {
+    // وزع 8 صور بالتساوي حول الدائرة افقيًا
+    const angle = (i / (imgCount - 1)) * Math.PI * 2; // يوزع 8 نقاط حول 2π (نستخدم imgCount-1 لأن الأخيرة للأعلى)
+    const x = Math.sin(angle) * radius;
+    const z = -Math.cos(angle) * radius; // نضعها أمام الكاميرا في -z
+    plane.position.set(x, 1.6, z);
+    // واجه الطائرة نحو مركز المشهد (موقع الكاميرا)
+    plane.lookAt(new THREE.Vector3(0, 1.6, 0));
+  } else {
+    // الصورة الأخيرة في الأعلى
+    plane.position.set(0, 6, 0);
+    // استدارة بحيث تكون "مقلوبة" إلى الأسفل لتُعرض كلوحة علوية
+    plane.rotation.x = Math.PI / 2; // 90 درجة
+  }
+
+  scene.add(plane);
+  planes.push({ mesh: plane, src: src });
+}
+
+/* ====== Raycaster للنقر/اللمس (للكشف عن الصورة المضغوطة) ====== */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+/* ====== عناصر التحكم باللمس (مخصصة) ======
+   - سحب الإصبع يغيّر yaw (حول المحور Y) و pitch (حول المحور X)
+   - نستعمل قيود للـ pitch لمنع قلب الكاميرا
+*/
+let dragging = false;
+let lastX = 0, lastY = 0;
+let yaw = 0;   // rotation around Y, in radians
+let pitch = 0; // rotation around X, in radians
+const sensitivity = 0.0026; // قابل للتعديل: أقل = أبطأ، أكثر = أسرع
+const maxPitch = THREE.MathUtils.degToRad(85); // أقصى انحراف عمودي
+
+// apply initial camera rotation
+camera.rotation.order = "YXZ"; // yaw (y), pitch (x), roll (z)
+function applyCameraRotation() {
+  // clamp pitch
+  if (pitch > maxPitch) pitch = maxPitch;
+  if (pitch < -maxPitch) pitch = -maxPitch;
+  camera.rotation.x = pitch;
+  camera.rotation.y = yaw;
+}
+
+// التعامل مع مؤشرات اللمس/الماوس باستخدام Pointer Events إن أمكن
+function getPointerClient(evt) {
+  if (evt.touches && evt.touches.length > 0) {
+    return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+  } else if (evt.changedTouches && evt.changedTouches.length > 0) {
+    return { x: evt.changedTouches[0].clientX, y: evt.changedTouches[0].clientY };
+  } else {
+    return { x: evt.clientX, y: evt.clientY };
+  }
+}
+
+// بدء السحب
+function onPointerDown(e) {
+  // منع تمرير الصفحة عندما يكون اللمس داخل الحاوية
+  if (e.cancelable) e.preventDefault();
+
+  dragging = true;
+  const p = getPointerClient(e);
+  lastX = p.x;
+  lastY = p.y;
+}
+
+// أثناء السحب
+function onPointerMove(e) {
+  if (!dragging) return;
+  if (e.cancelable) e.preventDefault();
+
+  const p = getPointerClient(e);
+  const dx = p.x - lastX;
+  const dy = p.y - lastY;
+
+  // تحديث yaw/pitch (ناقص/زائد يتناسب مع الإحساس)
+  yaw -= dx * sensitivity;
+  pitch -= dy * sensitivity;
+
+  applyCameraRotation();
+
+  lastX = p.x;
+  lastY = p.y;
+}
+
+// نهاية السحب — نستخدم للكشف عن "نقرة" إذا كانت الحركة صغيرة
+let pointerDownInfo = null;
+function onPointerUp(e) {
+  if (e.cancelable) e.preventDefault();
+  const p = getPointerClient(e);
+  dragging = false;
+
+  // قياس الحركة منذ البداية
+  if (pointerDownInfo) {
+    const moved = Math.hypot(p.x - pointerDownInfo.x, p.y - pointerDownInfo.y);
+    const tapThreshold = 8; // px — إذا الحركة أقل من هذا نعتبرها tap
+    if (moved < tapThreshold) {
+      // نفعل raycast بناءً على موقع اللمس/نقرة
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((p.x - rect.left) / rect.width) * 2 - 1;
+      pointer.y = - ((p.y - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(planes.map(p => p.mesh));
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        // نبحث المصدر من الطائرة المتقابلة
+        const found = planes.find(p => p.mesh === hit);
+        if (found) {
+          openZoom(found.src);
+        }
+      }
+    }
+  }
+  pointerDownInfo = null;
+}
+
+/* مسجّل بداية اللمس (نحفظ نقطة البداية) */
+function onPointerStart(e) {
+  if (e.cancelable) e.preventDefault();
+  pointerDownInfo = getPointerClient(e);
+  onPointerDown(e);
+}
+
+/* تسجيل الأحداث: pointer events مع دعم fallback للـ touch/mouse */
+renderer.domElement.addEventListener('pointerdown', onPointerStart, { passive: false });
+window.addEventListener('pointermove', onPointerMove, { passive: false });
+window.addEventListener('pointerup', onPointerUp, { passive: false });
+
+// Fallback قد لا يكون ضرورياً على معظم الأجهزة الحديثة، لكنه آمن
+renderer.domElement.addEventListener('touchstart', onPointerStart, { passive: false });
+window.addEventListener('touchmove', onPointerMove, { passive: false });
+window.addEventListener('touchend', onPointerUp, { passive: false });
+
+renderer.domElement.addEventListener('mousedown', onPointerStart, { passive: false });
+window.addEventListener('mousemove', onPointerMove, { passive: false });
+window.addEventListener('mouseup', onPointerUp, { passive: false });
+
+/* منع تمرير الصفحة عندما يكون الـ touch داخل الـ container (خاصة Chrome Android) */
+document.addEventListener('touchmove', function(e) {
+  try {
+    if (e.target && e.target.closest && e.target.closest('#canvas-container')) {
+      e.preventDefault();
+    }
+  } catch (err) {}
+}, { passive: false });
+
+/* عند إعادة التحجيم */
+window.addEventListener('resize', onWindowResize, false);
+function onWindowResize() {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+}
+
+/* ==== دالة التكبير (فتح overlay) ==== */
+function openZoom(src) {
+  const overlay = document.getElementById('fullscreen-zoom');
+  const img = document.getElementById('zoom-img');
+  img.src = src;
+  overlay.style.display = 'flex';
+}
+function closeZoom(){ document.getElementById('fullscreen-zoom').style.display = 'none'; }
+
+/* ==== حلقة العرض ===== */
+function animate() {
+  requestAnimationFrame(animate);
+
+  // لضمان أن الطائرات تواجه الكاميرا دائماً (حتى بعد تدوير الكاميرا)
+  planes.forEach(p => {
+    // إذا كانت الصورة ليست العلوية
+    if (p.mesh.position.y !== 6) {
+      // نجعل الطائرة تنظر نحو موقع الكاميرا (المركز في الارتفاع 1.6)
+      const target = new THREE.Vector3(camera.position.x, p.mesh.position.y, camera.position.z);
+      p.mesh.lookAt(target);
+    }
+  });
+
+  renderer.render(scene, camera);
+}
+applyCameraRotation();
+animate();
+
+/* تجربة حساسية: يمكنك تعديل المتغير sensitivity أعلاه إذا أردت حركة أبطأ/أسرع */
+</script>
+</body>
+</html>

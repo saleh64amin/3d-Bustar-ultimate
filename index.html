@@ -1,143 +1,359 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-<title>معرض الصور</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>معرض الصور - لمس كامل + زر جيروسكوب</title>
 
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 
 <style>
-html,body{
-margin:0;
-overflow:hidden;
-touch-action:none;
-}
+  html,body{
+    margin:0;
+    height:100%;
+    overflow:hidden;            /* منع تمرير الصفحة الافتراضي */
+    touch-action:none;
+  }
+  a-scene, canvas { touch-action:none; }
 
-a-scene{
-touch-action:none;
-}
+  /* overlay التكبير */
+  #fullscreen-zoom{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.9);
+    z-index:9999;
+    justify-content:center;
+    align-items:center;
+    cursor:zoom-out;
+  }
+  #fullscreen-zoom img{
+    max-width:95%;
+    max-height:95%;
+    border:2px solid #fff;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  }
 
-#fullscreen-zoom{
-display:none;
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.9);
-z-index:9999;
-justify-content:center;
-align-items:center;
-}
+  /* واجهة زر الجيروسكوب */
+  #gyroToggle{
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 10000;
+    background: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  #gyroToggle.active { background:#4caf50; color:#fff; }
 
-#fullscreen-zoom img{
-max-width:95%;
-max-height:95%;
-border:2px solid white;
-}
+  .instruction{
+    position:fixed;
+    bottom:20px;
+    width:100%;
+    text-align:center;
+    color:white;
+    font-family:sans-serif;
+    z-index:100;
+    pointer-events:none;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  }
 
-.instruction{
-position:fixed;
-bottom:20px;
-width:100%;
-text-align:center;
-color:white;
-font-family:sans-serif;
-z-index:100;
-}
+  .nav-links{
+    position:fixed;
+    bottom:80px;
+    width:100%;
+    text-align:center;
+    z-index:200;
+    direction:ltr;
+  }
+  .nav-links a{
+    display:inline-block;
+    background:#556B2F;
+    color:white;
+    padding:10px 18px;
+    margin:0 10px;
+    border-radius:40px;
+    text-decoration:none;
+    font-family:sans-serif;
+    font-weight:bold;
+    font-size:18px;
+    border:2px solid #6B8E23;
+  }
+  .nav-links a:hover { background:#6B8E23; transform:scale(1.03); }
 </style>
-
-<script>
-
-AFRAME.registerComponent('zoom-logic',{
-init:function(){
-
-const overlay=document.getElementById("fullscreen-zoom");
-const zoomImg=overlay.querySelector("img");
-
-this.el.addEventListener("click",()=>{
-
-zoomImg.src=this.el.getAttribute("src");
-overlay.style.display="flex";
-
-});
-
-}
-});
-
-function closeZoom(){
-document.getElementById("fullscreen-zoom").style.display="none";
-}
-
-/* إصلاح مشكلة Chrome */
-document.addEventListener("DOMContentLoaded",function(){
-
-document.addEventListener("touchmove",function(e){
-
-if(e.target.closest("a-scene")){
-e.preventDefault();
-}
-
-},{passive:false});
-
-});
-
-</script>
-
 </head>
-
 <body>
 
-<div class="instruction">
-اسحب الشاشة للتحرك — اضغط الصورة للتكبير
+<!-- زر تفعيل/إيقاف الجيروسكوب (افتراضيًا مُعطّل) -->
+<button id="gyroToggle" title="تفعيل/إيقاف حركة الهاتف">تفعيل حركة الهاتف</button>
+
+<div class="nav-links">
+  <a href="1.html">1</a>
+  <a href="2.html">2</a>
 </div>
+
+<div class="instruction">اسحب الشاشة للتحرك — اضغط الصورة للتكبير</div>
 
 <div id="fullscreen-zoom" onclick="closeZoom()">
-<img src="">
+  <img id="zoom-img" src="" alt="Zoomed">
 </div>
 
+<!-- المشهد (نفس صورك) -->
 <a-scene vr-mode-ui="enabled:false">
 
-<a-sky color="#556B2F"></a-sky>
+  <a-sky color="#556B2F"></a-sky>
+  <a-entity light="type:ambient;intensity:1.5"></a-entity>
 
-<a-entity light="type:ambient;intensity:1.5"></a-entity>
+  <!-- 8 images around -->
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 1.6 -5" width="3.5" height="3.5"></a-image>
 
-<!-- 8 images around -->
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="3.5 1.6 -3.5" rotation="0 -45 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="0 1.6 -5" width="3.5" height="3.5"></a-image>
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="5 1.6 0" rotation="0 -90 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="3.5 1.6 -3.5" rotation="0 -45 0" width="3.5" height="3.5"></a-image>
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-41.jpg" position="3.5 1.6 3.5" rotation="0 -135 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="5 1.6 0" rotation="0 -90 0" width="3.5" height="3.5"></a-image>
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-46.jpg" position="0 1.6 5" rotation="0 180 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-41.jpg" position="3.5 1.6 3.5" rotation="0 -135 0" width="3.5" height="3.5"></a-image>
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-50.jpg" position="-3.5 1.6 3.5" rotation="0 135 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-46.jpg" position="0 1.6 5" rotation="0 180 0" width="3.5" height="3.5"></a-image>
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="-5 1.6 0" rotation="0 90 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-50.jpg" position="-3.5 1.6 3.5" rotation="0 135 0" width="3.5" height="3.5"></a-image>
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="-3.5 1.6 -3.5" rotation="0 45 0" width="3.5" height="3.5"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-13.jpg" position="-5 1.6 0" rotation="0 90 0" width="3.5" height="3.5"></a-image>
+  <!-- image above -->
+  <a-image class="clickable" zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="0 6 0" rotation="90 0 0" width="4" height="4"></a-image>
 
-<a-image zoom-logic src="photo_2026-03-07_21-54-29.jpg" position="-3.5 1.6 -3.5" rotation="0 45 0" width="3.5" height="3.5"></a-image>
+  <!-- الكاميرا: نستخدم look-controls لكن نطّلعها من touch (نقوم بتحكم اللمس بأنفسنا) -->
+  <a-entity id="cameraRig" position="0 1.6 0">
+    <a-entity id="camera" camera
+              look-controls="touchEnabled: false; mouseEnabled: true; magicWindowTrackingEnabled: false; pointerLockEnabled: false"
+              touch-look>
+      <!-- مؤشر صغير للمساعدة -->
+      <a-entity geometry="primitive:ring; radiusInner:0.01; radiusOuter:0.015"
+                material="color:white; shader:flat"
+                position="0 0 -2" scale="0.3 0.3 0.3"></a-entity>
 
-<!-- image above -->
-
-<a-image zoom-logic src="photo_2026-03-07_21-54-35.jpg" position="0 6 0" rotation="90 0 0" width="4" height="4"></a-image>
-
-<a-entity camera
-look-controls="touchEnabled:true; magicWindowTrackingEnabled:true"
-position="0 1.6 0">
-
-<a-entity
-cursor="fuse:false; rayOrigin:entity"
-raycaster="objects:a-image"></a-entity>
-
-</a-entity>
+      <!-- cursor من الكاميرا (لا يوجد fuse) -->
+      <a-entity cursor="fuse:false; rayOrigin:entity" raycaster="objects:.clickable"></a-entity>
+    </a-entity>
+  </a-entity>
 
 </a-scene>
 
+<script>
+/* ---------------------------
+   1) منع تمرير الصفحة داخل المشهد (Chrome fix)
+   --------------------------- */
+document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('touchmove', function (e) {
+    try {
+      if (e.target && e.target.closest && e.target.closest('a-scene')) {
+        e.preventDefault(); // مهم جداً في Chrome ليصل اللمس لـ look/our handlers
+      }
+    } catch (err) {}
+  }, { passive: false });
+});
+
+/* ---------------------------
+   2) zoom-logic component
+   - يفتح overlay فقط عند tap (وليس gaze)
+   - يتجاهل اللمسات التي كانت سحباً (movement threshold)
+   --------------------------- */
+AFRAME.registerComponent('zoom-logic', {
+  init: function () {
+    const overlay = document.getElementById('fullscreen-zoom');
+    const img = document.getElementById('zoom-img');
+    let startX = 0, startY = 0, moved = false;
+
+    this.el.addEventListener('touchstart', (ev) => {
+      const t = ev.touches[0];
+      startX = t.clientX; startY = t.clientY; moved = false;
+    }, { passive: true });
+
+    this.el.addEventListener('touchmove', (ev) => {
+      const t = ev.touches[0];
+      const dx = Math.abs(t.clientX - startX);
+      const dy = Math.abs(t.clientY - startY);
+      if (dx > 8 || dy > 8) moved = true;
+    }, { passive: true });
+
+    this.el.addEventListener('touchend', (ev) => {
+      if (!moved) {
+        img.src = this.el.getAttribute('src');
+        overlay.style.display = 'flex';
+      }
+    });
+
+    // mouse support
+    this.el.addEventListener('mousedown', (ev) => {
+      img.src = this.el.getAttribute('src');
+      overlay.style.display = 'flex';
+    });
+  }
+});
+
+function closeZoom(){
+  document.getElementById('fullscreen-zoom').style.display = 'none';
+}
+
+/* ---------------------------
+   3) touch-look component (التحكم باللمس الكامل)
+   - مسؤول عن الحركة باللمس يمين/يسار/أعلى/أسفل
+   - يعمل حتى لو الجيروسكوب معطّل (وإذا فعّلنا الجيروسكوب نوقف مؤقتًا تأثير اللمس)
+   --------------------------- */
+AFRAME.registerComponent('touch-look', {
+  schema: {
+    sensitivity: { type: 'number', default: 0.12 }, // قابل للتعديل
+    maxPitch: { type: 'number', default: 89 }
+  },
+  init: function () {
+    this.cameraEl = this.el; // الكاميرا نفسها
+    this.dragging = false;
+    this.startX = 0; this.startY = 0;
+    this.pitch = 0; // degrees
+    this.yaw = 0;
+
+    // نقرأ الدوران الابتدائي إن وجد
+    const r = this.cameraEl.getAttribute('rotation') || { x:0, y:0, z:0 };
+    this.pitch = r.x;
+    this.yaw = r.y;
+
+    // global flag يتحكم فيه زر الجيروسكوب
+    window.__GYRO_ACTIVE = false;
+
+    // ربط المعالجات
+    this.onDown = this.onDown.bind(this);
+    this.onMove = this.onMove.bind(this);
+    this.onUp = this.onUp.bind(this);
+
+    // استماع لبداية اللمس/المؤشر
+    window.addEventListener('mousedown', this.onDown, { passive: false });
+    window.addEventListener('touchstart', this.onDown, { passive: false });
+  },
+  onDown: function (evt) {
+    // لا نسمح للـ page scroll هنا (evt.cancelable موجود غالباً)
+    if (evt.cancelable) evt.preventDefault();
+
+    // لو الجيروسكوب مفعل، نريد السماح له بالتحكم — لكن سنسمح باللمس كـ offset (اختياري)
+    // سنترك اللمس يعمل دائماً كـ offset حتى لو الجيروسكوب مفعل (سلوكك السابق طلب ذلك)
+    const p = (evt.touches && evt.touches[0]) || evt;
+    this.startX = p.clientX;
+    this.startY = p.clientY;
+    this.dragging = true;
+
+    window.addEventListener('mousemove', this.onMove, { passive: false });
+    window.addEventListener('mouseup', this.onUp, { passive: true });
+    window.addEventListener('touchmove', this.onMove, { passive: false });
+    window.addEventListener('touchend', this.onUp, { passive: true });
+  },
+  onMove: function (evt) {
+    if (!this.dragging) return;
+    if (evt.cancelable) evt.preventDefault();
+
+    // لو الجيروسكوب مفعل ونريد تعطيله مؤقتاً أثناء السحب، يمكنك تفعيل هذا السلوك.
+    // هنا لا نعطل الجيروسكوب تلقائياً — بل نطبق offset فوقه.
+    const p = (evt.touches && evt.touches[0]) || evt;
+    const dx = p.clientX - this.startX;
+    const dy = p.clientY - this.startY;
+
+    // تحديث بالدرجات
+    this.yaw -= dx * this.data.sensitivity;
+    this.pitch -= dy * this.data.sensitivity;
+
+    // قيد الـ pitch
+    const maxP = Math.max(1, this.data.maxPitch);
+    if (this.pitch > maxP) this.pitch = maxP;
+    if (this.pitch < -maxP) this.pitch = -maxP;
+
+    // إذا الجيروسكوب مفعل فنطبق التغيّر كـ offset إضافي
+    if (window.__GYRO_ACTIVE) {
+      // عندما يكون gyro فعال، لا نكتب مباشرة على rotation (لأن look-controls سيتحكم)
+      // بدلاً من ذلك نضع rotation مباشرة هنا ليتفاعل مع look-controls بعد قليل.
+      // لكن أبسط طريقه: نضع دوران الكاميرا بنفس الطريقة (يتجاوز look-controls).
+      this.cameraEl.setAttribute('rotation', { x: this.pitch, y: this.yaw, z: 0 });
+    } else {
+      // اللمس فقط: نطبق الدوران
+      this.cameraEl.setAttribute('rotation', { x: this.pitch, y: this.yaw, z: 0 });
+    }
+
+    // تحديث نقاط البداية لتكون نسبية
+    this.startX = p.clientX;
+    this.startY = p.clientY;
+  },
+  onUp: function (evt) {
+    this.dragging = false;
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+    window.removeEventListener('touchmove', this.onMove);
+    window.removeEventListener('touchend', this.onUp);
+  },
+  remove: function () {
+    window.removeEventListener('mousedown', this.onDown);
+    window.removeEventListener('touchstart', this.onDown);
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+    window.removeEventListener('touchmove', this.onMove);
+    window.removeEventListener('touchend', this.onUp);
+  }
+});
+
+/* ---------------------------
+   4) زر تفعيل / إيقاف الجيروسكوب
+   - عند التفعيل نغيّر look-controls لتمكين magicWindowTracking (device orientation)
+   - عند الإيقاف نعيده معطلاً حتى لا يؤثر تلقائياً على اللمس
+   --------------------------- */
+(function(){
+  const btn = document.getElementById('gyroToggle');
+  let active = false;
+  function updateButton(){
+    btn.textContent = active ? 'إيقاف حركة الهاتف' : 'تفعيل حركة الهاتف';
+    btn.classList.toggle('active', active);
+  }
+
+  async function enableGyro(){
+    // iOS permission
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== 'granted') { alert('يرجى السماح بحركة الجهاز إذا أردت استخدام الجيروسكوب'); return false; }
+      } catch(err) {
+        // permission request may fail; continue to try enabling
+      }
+    }
+    // فعل magicWindowTracking داخل look-controls
+    const cam = document.getElementById('camera');
+    cam.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; mouseEnabled: true;');
+    window.__GYRO_ACTIVE = true;
+    active = true;
+    updateButton();
+    return true;
+  }
+
+  function disableGyro(){
+    const cam = document.getElementById('camera');
+    cam.setAttribute('look-controls', 'magicWindowTrackingEnabled: false; touchEnabled: false; mouseEnabled: true;');
+    window.__GYRO_ACTIVE = false;
+    active = false;
+    updateButton();
+  }
+
+  btn.addEventListener('click', async function(){
+    if (!active) {
+      const ok = await enableGyro();
+      if (!ok) return;
+    } else {
+      disableGyro();
+    }
+  });
+
+  // الحالة الافتراضية: معطّل
+  disableGyro();
+})();
+
+</script>
 </body>
 </html>
